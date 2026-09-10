@@ -1,0 +1,651 @@
+{
+  "meta": {
+    "seed": 20260824,
+    "as_of": "2026-08-24",
+    "refresh_date": "2026-08-24T03:00:00",
+    "orders": 2500,
+    "customers": 220,
+    "endusers": 380,
+    "movement_rows": 14593,
+    "note": "Synthetic data. All organization names are fictional. Regenerating with non-default parameters invalidates every recorded eval result."
+  },
+  "periods": {
+    "FY2025": {
+      "net_bookings_usd": 135290375.66074526,
+      "positive_booking_movements_usd": 146501360.13692018,
+      "debookings_usd": -11210984.476174995,
+      "cancel_debookings_usd": -7323489.878528375,
+      "transaction_bookings": {
+        "USD": 36993924.54485484,
+        "EUR": 26288340.676556416,
+        "AED": 97281311.54214986,
+        "SAR": 69773478.50282338,
+        "QAR": 48732928.2287539,
+        "KWD": 3435050.428376868
+      },
+      "transaction_bookings_tax": {
+        "USD": 26848764.093333703,
+        "EUR": 20367174.741810698,
+        "AED": 70772948.11948518,
+        "SAR": 48886818.94994334,
+        "QAR": 33013946.423475437,
+        "KWD": 2934609.009323941
+      },
+      "sales_order_count": 1360,
+      "net_bookings_usd_trade": 118113571.23809437
+    },
+    "FY2025-PD01": {
+      "net_bookings_usd": 14858345.367449645,
+      "positive_booking_movements_usd": 14898079.0394577,
+      "debookings_usd": -39733.672008051,
+      "cancel_debookings_usd": -28915.826147391253,
+      "transaction_bookings": {
+        "USD": 3665459.4693322023,
+        "EUR": 3167373.0211675144,
+        "AED": 5120595.914115074,
+        "SAR": 14975669.430597197,
+        "QAR": 5310191.834333447,
+        "KWD": 275350.114013138
+      },
+      "transaction_bookings_tax": {
+        "USD": 3165891.3159425724,
+        "EUR": 2573414.7558540544,
+        "AED": 4202005.687936731,
+        "SAR": 6625244.384101924,
+        "QAR": 1171045.4765043405,
+        "KWD": 224454.47023307838
+      },
+      "sales_order_count": 134,
+      "net_bookings_usd_trade": 13491346.55858423
+    },
+    "FY2025-PD02": {
+      "net_bookings_usd": 10848944.85586423,
+      "positive_booking_movements_usd": 11241632.065203948,
+      "debookings_usd": -392687.2093397133,
+      "cancel_debookings_usd": -308095.61119001417,
+      "transaction_bookings": {
+        "USD": 2551272.7510204525,
+        "EUR": 2298381.9204101567,
+        "AED": 10116005.837927567,
+        "SAR": 3544260.3150650044,
+        "QAR": 4892158.417858478,
+        "KWD": 230483.60139907215
+      },
+      "transaction_bookings_tax": {
+        "USD": 1685641.4657947004,
+        "EUR": 1822546.6929633524,
+        "AED": 8319664.736050148,
+        "SAR": 3427718.350774238,
+        "QAR": 3703835.287545506,
+        "KWD": 114727.20248200194
+      },
+      "sales_order_count": 145,
+      "net_bookings_usd_trade": 9258664.84453697
+    },
+    "FY2025-PD03": {
+      "net_bookings_usd": 8559071.589233758,
+      "positive_booking_movements_usd": 9127204.775360754,
+      "debookings_usd": -568133.1861269985,
+      "cancel_debookings_usd": -492150.2172212796,
+      "transaction_bookings": {
+        "USD": 2942892.990332527,
+        "EUR": 1283723.1521897793,
+        "AED": 6696911.333739598,
+        "SAR": 5791167.209568494,
+        "QAR": 1430644.554681823,
+        "KWD": 140439.43679847056
+      },
+      "transaction_bookings_tax": {
+        "USD": 1655742.298765305,
+        "EUR": 1358609.1924114737,
+        "AED": 4192722.516882716,
+        "SAR": 2528596.2486273237,
+        "QAR": 1489951.735613487,
+        "KWD": 144179.95884446043
+      },
+      "sales_order_count": 146,
+      "net_bookings_usd_trade": 7540440.011151944
+    },
+    "FY2025-PD04": {
+      "net_bookings_usd": 10744792.151060471,
+      "positive_booking_movements_usd": 11788019.454445725,
+      "debookings_usd": -1043227.3033852619,
+      "cancel_debookings_usd": -811147.5945651442,
+      "transaction_bookings": {
+        "USD": 3446255.910904822,
+        "EUR": 3652358.3182977587,
+        "AED": 1778362.1628006676,
+        "SAR": 5732384.640324747,
+        "QAR": 2109940.3365253373,
+        "KWD": 223188.70791580642
+      },
+      "transaction_bookings_tax": {
+        "USD": 2932714.377391489,
+        "EUR": 3108094.3427502145,
+        "AED": 1503907.4871736467,
+        "SAR": 3757316.864633817,
+        "QAR": 1674481.7842158526,
+        "KWD": 69496.49980969787
+      },
+      "sales_order_count": 188,
+      "net_bookings_usd_trade": 9205291.551160092
+    },
+    "FY2025-PD05": {
+      "net_bookings_usd": 8250809.088234511,
+      "positive_booking_movements_usd": 9207574.804927213,
+      "debookings_usd": -956765.7166927083,
+      "cancel_debookings_usd": -784719.6358527319,
+      "transaction_bookings": {
+        "USD": 2513683.837652547,
+        "EUR": 1476655.840755491,
+        "AED": 7024151.648960319,
+        "SAR": 4329655.544333728,
+        "QAR": 1283428.4801758397,
+        "KWD": 217861.51339166355
+      },
+      "transaction_bookings_tax": {
+        "USD": 2116784.8125371346,
+        "EUR": 1575229.1591175073,
+        "AED": 5931078.874698703,
+        "SAR": 4592453.709571871,
+        "QAR": 1345375.525460802,
+        "KWD": 240093.1373089829
+      },
+      "sales_order_count": 214,
+      "net_bookings_usd_trade": 7540768.202606364
+    },
+    "FY2025-PD06": {
+      "net_bookings_usd": 8173149.766278386,
+      "positive_booking_movements_usd": 9721351.539218519,
+      "debookings_usd": -1548201.7729401286,
+      "cancel_debookings_usd": -1014756.9470989311,
+      "transaction_bookings": {
+        "USD": 1547968.3038508326,
+        "EUR": 1355768.5093958022,
+        "AED": 6946227.210800996,
+        "SAR": 6642757.816088427,
+        "QAR": 1958249.0088749547,
+        "KWD": 291398.7326701221
+      },
+      "transaction_bookings_tax": {
+        "USD": 1068371.9707662563,
+        "EUR": 946346.8289857511,
+        "AED": 6480327.43070313,
+        "SAR": 3568494.9916560207,
+        "QAR": 2136857.7873186935,
+        "KWD": 281203.1254514169
+      },
+      "sales_order_count": 222,
+      "net_bookings_usd_trade": 7571949.437079158
+    },
+    "FY2025-PD07": {
+      "net_bookings_usd": 9939953.560287068,
+      "positive_booking_movements_usd": 10931378.982428225,
+      "debookings_usd": -991425.4221411563,
+      "cancel_debookings_usd": -594197.5927027239,
+      "transaction_bookings": {
+        "USD": 2078938.391091422,
+        "EUR": 1662476.77313855,
+        "AED": 10268288.994762521,
+        "SAR": 2996496.505795116,
+        "QAR": 3739421.663233599,
+        "KWD": 439007.7827278617
+      },
+      "transaction_bookings_tax": {
+        "USD": 1909132.6296663282,
+        "EUR": 1061140.1172870658,
+        "AED": 8410863.535764221,
+        "SAR": 3196243.100712116,
+        "QAR": 3293493.542574581,
+        "KWD": 437038.73749509314
+      },
+      "sales_order_count": 239,
+      "net_bookings_usd_trade": 9052482.621153714
+    },
+    "FY2025-PD08": {
+      "net_bookings_usd": 11308719.505094767,
+      "positive_booking_movements_usd": 12938049.143169194,
+      "debookings_usd": -1629329.6380744174,
+      "cancel_debookings_usd": -1080250.1419583682,
+      "transaction_bookings": {
+        "USD": 2562387.7794888653,
+        "EUR": 1633912.9365368597,
+        "AED": 10853524.65691656,
+        "SAR": 4411452.992127821,
+        "QAR": 6167058.292935968,
+        "KWD": 350697.7169020207
+      },
+      "transaction_bookings_tax": {
+        "USD": 1173241.8370497406,
+        "EUR": 794557.5371874266,
+        "AED": 7245168.962650817,
+        "SAR": 2987910.293130267,
+        "QAR": 5060663.993199241,
+        "KWD": 299441.94222659006
+      },
+      "sales_order_count": 252,
+      "net_bookings_usd_trade": 9791561.133843586
+    },
+    "FY2025-PD09": {
+      "net_bookings_usd": 11509639.007723395,
+      "positive_booking_movements_usd": 12360805.764627118,
+      "debookings_usd": -851166.7569037285,
+      "cancel_debookings_usd": -585951.2420053509,
+      "transaction_bookings": {
+        "USD": 3671905.1239937474,
+        "EUR": 1908302.5117518548,
+        "AED": 7489794.173663822,
+        "SAR": 5686176.757719703,
+        "QAR": 5274247.8990876265,
+        "KWD": 231828.48336739067
+      },
+      "transaction_bookings_tax": {
+        "USD": 2404076.8746065595,
+        "EUR": 1647213.9740757686,
+        "AED": 4626163.412299348,
+        "SAR": 3493914.097716971,
+        "QAR": 2747620.917923529,
+        "KWD": 214233.56452532497
+      },
+      "sales_order_count": 247,
+      "net_bookings_usd_trade": 10423748.633141072
+    },
+    "FY2025-PD10": {
+      "net_bookings_usd": 13072707.293584485,
+      "positive_booking_movements_usd": 13949437.076649377,
+      "debookings_usd": -876729.7830648887,
+      "cancel_debookings_usd": -488039.1150988582,
+      "transaction_bookings": {
+        "USD": 3607831.687559843,
+        "EUR": 2798925.6399879917,
+        "AED": 10270505.177144853,
+        "SAR": 5592836.371951409,
+        "QAR": 4509301.829088773,
+        "KWD": 273117.75676562486
+      },
+      "transaction_bookings_tax": {
+        "USD": 2559119.2110083112,
+        "EUR": 2285119.7373604844,
+        "AED": 5673245.302087868,
+        "SAR": 5708927.176208991,
+        "QAR": 4170155.378712736,
+        "KWD": 295533.29727480235
+      },
+      "sales_order_count": 280,
+      "net_bookings_usd_trade": 10573169.579490088
+    },
+    "FY2025-PD11": {
+      "net_bookings_usd": 11399231.640669154,
+      "positive_booking_movements_usd": 12520037.435472116,
+      "debookings_usd": -1120805.7948029656,
+      "cancel_debookings_usd": -478414.2697808739,
+      "transaction_bookings": {
+        "USD": 2629416.0263898796,
+        "EUR": 1816174.7288317827,
+        "AED": 11786205.918055711,
+        "SAR": 4770041.424580606,
+        "QAR": 4727137.632762924,
+        "KWD": 310942.6267239682
+      },
+      "transaction_bookings_tax": {
+        "USD": 1930782.593833608,
+        "EUR": 1793013.6674959052,
+        "AED": 7721452.17021199,
+        "SAR": 4082337.5837164004,
+        "QAR": 3072681.592032904,
+        "KWD": 289354.62709698017
+      },
+      "sales_order_count": 273,
+      "net_bookings_usd_trade": 9356701.051621918
+    },
+    "FY2025-PD12": {
+      "net_bookings_usd": 16625011.83526506,
+      "positive_booking_movements_usd": 17817790.05596004,
+      "debookings_usd": -1192778.2206949752,
+      "cancel_debookings_usd": -656851.684906715,
+      "transaction_bookings": {
+        "USD": 5775912.273237677,
+        "EUR": 3234287.324092887,
+        "AED": 8930738.513262168,
+        "SAR": 5300579.494671138,
+        "QAR": 7331148.27919512,
+        "KWD": 450733.9557017322
+      },
+      "transaction_bookings_tax": {
+        "USD": 4247264.705971714,
+        "EUR": 1401888.736321719,
+        "AED": 6466348.003025894,
+        "SAR": 4917662.149093441,
+        "QAR": 3147783.402373754,
+        "KWD": 324852.4465755119
+      },
+      "sales_order_count": 277,
+      "net_bookings_usd_trade": 14307447.613725055
+    },
+    "FY2026-YTD10": {
+      "net_bookings_usd": 101140186.07350348,
+      "positive_booking_movements_usd": 112564188.83852741,
+      "debookings_usd": -11424002.765023975,
+      "cancel_debookings_usd": -6875418.07006119,
+      "transaction_bookings": {
+        "USD": 28394234.327726673,
+        "EUR": 20565315.091653306,
+        "AED": 75515454.03484134,
+        "SAR": 47919233.3778351,
+        "QAR": 41119345.89188923,
+        "KWD": 1987427.0825672362
+      },
+      "transaction_bookings_tax": {
+        "USD": 19802777.342946123,
+        "EUR": 14537006.854635946,
+        "AED": 56827360.277539596,
+        "SAR": 32401067.71088699,
+        "QAR": 26803446.278199278,
+        "KWD": 1523108.4636488988
+      },
+      "sales_order_count": 1405,
+      "net_bookings_usd_trade": 92207833.80968195
+    },
+    "FY2026-PD01": {
+      "net_bookings_usd": 11779195.872804698,
+      "positive_booking_movements_usd": 13411310.926903162,
+      "debookings_usd": -1632115.054098467,
+      "cancel_debookings_usd": -1170404.3141391256,
+      "transaction_bookings": {
+        "USD": 2151346.9351743585,
+        "EUR": 3613717.3500065613,
+        "AED": 10162047.74996536,
+        "SAR": 5601169.39933495,
+        "QAR": 3461016.448493775,
+        "KWD": 189727.7858365693
+      },
+      "transaction_bookings_tax": {
+        "USD": 1539497.4767763908,
+        "EUR": 1806780.0608848713,
+        "AED": 8716253.606646545,
+        "SAR": 4838356.088736616,
+        "QAR": 1290724.82304434,
+        "KWD": 124943.09022206359
+      },
+      "sales_order_count": 286,
+      "net_bookings_usd_trade": 10187602.907723716
+    },
+    "FY2026-PD02": {
+      "net_bookings_usd": 10324122.344756693,
+      "positive_booking_movements_usd": 11554702.667365959,
+      "debookings_usd": -1230580.3226092723,
+      "cancel_debookings_usd": -575572.1968296671,
+      "transaction_bookings": {
+        "USD": 2345669.6993537033,
+        "EUR": 1692689.9370979103,
+        "AED": 9376445.882421287,
+        "SAR": 3898439.663755688,
+        "QAR": 7511224.623504014,
+        "KWD": 166239.20098568228
+      },
+      "transaction_bookings_tax": {
+        "USD": 1413624.3743002065,
+        "EUR": 1618754.6577938274,
+        "AED": 4313282.7198617635,
+        "SAR": 2159857.279648885,
+        "QAR": 2605264.262652508,
+        "KWD": 61531.671401068124
+      },
+      "sales_order_count": 262,
+      "net_bookings_usd_trade": 9089129.025570715
+    },
+    "FY2026-PD03": {
+      "net_bookings_usd": 7493173.168386532,
+      "positive_booking_movements_usd": 9117205.85143551,
+      "debookings_usd": -1624032.6830489764,
+      "cancel_debookings_usd": -944877.4213787919,
+      "transaction_bookings": {
+        "USD": 2161178.607325251,
+        "EUR": 2054785.4615099903,
+        "AED": 5336399.171921255,
+        "SAR": 2544007.7125331443,
+        "QAR": 1738976.4825965993,
+        "KWD": 172389.9500094525
+      },
+      "transaction_bookings_tax": {
+        "USD": 1386045.642593177,
+        "EUR": 865015.8793963281,
+        "AED": 3779017.0673341076,
+        "SAR": 2667436.3066186905,
+        "QAR": 1619359.5762695626,
+        "KWD": 174819.24066987637
+      },
+      "sales_order_count": 259,
+      "net_bookings_usd_trade": 7071090.804712017
+    },
+    "FY2026-PD04": {
+      "net_bookings_usd": 6761649.316363943,
+      "positive_booking_movements_usd": 7874081.622807106,
+      "debookings_usd": -1112432.306443162,
+      "cancel_debookings_usd": -698292.8127071806,
+      "transaction_bookings": {
+        "USD": 2104367.149927968,
+        "EUR": 512374.42970921326,
+        "AED": 5915603.315979392,
+        "SAR": 2145251.083090797,
+        "QAR": 4845380.86167415,
+        "KWD": 184609.80818482404
+      },
+      "transaction_bookings_tax": {
+        "USD": 1603767.4197141055,
+        "EUR": 260463.9925497314,
+        "AED": 3559951.104340767,
+        "SAR": 1835683.6858600006,
+        "QAR": 2027073.7083222654,
+        "KWD": 195171.97277390095
+      },
+      "sales_order_count": 232,
+      "net_bookings_usd_trade": 6295073.212256895
+    },
+    "FY2026-PD05": {
+      "net_bookings_usd": 8561312.355184657,
+      "positive_booking_movements_usd": 9401648.714591233,
+      "debookings_usd": -840336.3594065803,
+      "cancel_debookings_usd": -499158.597549883,
+      "transaction_bookings": {
+        "USD": 2649418.462192393,
+        "EUR": 1222811.144035142,
+        "AED": 6599606.693800304,
+        "SAR": 4687177.281243856,
+        "QAR": 4324076.913271579,
+        "KWD": 119952.40785921604
+      },
+      "transaction_bookings_tax": {
+        "USD": 2057795.989799119,
+        "EUR": 1269526.3366449708,
+        "AED": 6600022.538455703,
+        "SAR": 3375654.9971180144,
+        "QAR": 4601002.157004922,
+        "KWD": 129937.1543381003
+      },
+      "sales_order_count": 233,
+      "net_bookings_usd_trade": 7421693.219443678
+    },
+    "FY2026-PD06": {
+      "net_bookings_usd": 9475636.247484265,
+      "positive_booking_movements_usd": 10170145.476555446,
+      "debookings_usd": -694509.2290711893,
+      "cancel_debookings_usd": -339066.2158893156,
+      "transaction_bookings": {
+        "USD": 3664298.9655796485,
+        "EUR": 1869294.9536156363,
+        "AED": 5369116.541021224,
+        "SAR": 1652608.3671072717,
+        "QAR": 3260599.550596445,
+        "KWD": 320211.90831355937
+      },
+      "transaction_bookings_tax": {
+        "USD": 2602406.998405623,
+        "EUR": 1947945.0744834277,
+        "AED": 5214405.031784076,
+        "SAR": 1754801.5435711397,
+        "QAR": 3313505.7294735587,
+        "KWD": 269288.92259332526
+      },
+      "sales_order_count": 259,
+      "net_bookings_usd_trade": 8028464.358397487
+    },
+    "FY2026-PD07": {
+      "net_bookings_usd": 9858939.496206585,
+      "positive_booking_movements_usd": 10953379.02602251,
+      "debookings_usd": -1094439.5298159244,
+      "cancel_debookings_usd": -789503.2291300482,
+      "transaction_bookings": {
+        "USD": 3087620.8046878316,
+        "EUR": 2094448.1815011646,
+        "AED": 10955341.537129702,
+        "SAR": 2955953.862092853,
+        "QAR": 1051981.3863547172,
+        "KWD": 156089.02863308394
+      },
+      "transaction_bookings_tax": {
+        "USD": 1981103.9063507118,
+        "EUR": 1015098.0953712948,
+        "AED": 6081030.1654469995,
+        "SAR": 1633004.9769231284,
+        "QAR": 671925.1749764138,
+        "KWD": 92863.68119457253
+      },
+      "sales_order_count": 237,
+      "net_bookings_usd_trade": 8779549.284188488
+    },
+    "FY2026-PD08": {
+      "net_bookings_usd": 9250309.34888932,
+      "positive_booking_movements_usd": 10313858.461618528,
+      "debookings_usd": -1063549.1127292085,
+      "cancel_debookings_usd": -716533.0221258017,
+      "transaction_bookings": {
+        "USD": 2583977.272865414,
+        "EUR": 1474914.299718735,
+        "AED": 5137221.768076338,
+        "SAR": 8071907.2302028155,
+        "QAR": 4500486.542190779,
+        "KWD": 100778.186939075
+      },
+      "transaction_bookings_tax": {
+        "USD": 2180620.0080066035,
+        "EUR": 1544535.1724709189,
+        "AED": 4605559.37989056,
+        "SAR": 8188272.764928025,
+        "QAR": 3443401.22255573,
+        "KWD": 36821.364522456555
+      },
+      "sales_order_count": 236,
+      "net_bookings_usd_trade": 8621554.937641595
+    },
+    "FY2026-PD09": {
+      "net_bookings_usd": 13809948.799972767,
+      "positive_booking_movements_usd": 14718047.287275612,
+      "debookings_usd": -908098.4873028392,
+      "cancel_debookings_usd": -367565.9515038466,
+      "transaction_bookings": {
+        "USD": 3954839.5897082994,
+        "EUR": 3245643.3050518115,
+        "AED": 6446140.13196458,
+        "SAR": 9918995.441257957,
+        "QAR": 4051365.0429766024,
+        "KWD": 284934.6402686169
+      },
+      "transaction_bookings_tax": {
+        "USD": 2530118.2441462693,
+        "EUR": 2603867.266064683,
+        "AED": 5374087.5368467,
+        "SAR": 4355399.516092728,
+        "QAR": 3564769.930105452,
+        "KWD": 302739.0160730988
+      },
+      "sales_order_count": 247,
+      "net_bookings_usd_trade": 13697215.851526959
+    },
+    "FY2026-PD10": {
+      "net_bookings_usd": 13825899.12345394,
+      "positive_booking_movements_usd": 15049808.803952264,
+      "debookings_usd": -1223909.6804983367,
+      "cancel_debookings_usd": -774444.3088075274,
+      "transaction_bookings": {
+        "USD": 3691516.840911848,
+        "EUR": 2784636.0294071455,
+        "AED": 10217531.242561977,
+        "SAR": 6443723.337215729,
+        "QAR": 6374238.040230622,
+        "KWD": 292494.1655371567
+      },
+      "transaction_bookings_tax": {
+        "USD": 2507797.282853913,
+        "EUR": 1605020.3189758854,
+        "AED": 8583751.12693237,
+        "SAR": 1592600.5513897554,
+        "QAR": 3666419.6937945075,
+        "KWD": 134992.34986043672
+      },
+      "sales_order_count": 284,
+      "net_bookings_usd_trade": 13016460.208220325
+    }
+  },
+  "separation": {
+    "window": "FY2026-YTD10",
+    "variants": {
+      "no_B1_signed": {
+        "trap": "B1",
+        "description": "Drops negative movements from Net Bookings",
+        "naive_value": 112564188.84,
+        "governed_value": 101140186.07,
+        "delta_pct": 11.3
+      },
+      "no_B2_datebasis": {
+        "trap": "B2",
+        "description": "Times bookings by ACTUAL_SHIPMENT_DATE",
+        "naive_value": 89916622.18,
+        "governed_value": 101140186.07,
+        "delta_pct": 11.1
+      },
+      "no_B3_grossnew": {
+        "trap": "B3",
+        "description": "Labels all positive movements as Gross New Bookings",
+        "naive_value": 112564188.84,
+        "governed_value": 107891771.73,
+        "delta_pct": 4.33
+      },
+      "no_B4_currency": {
+        "trap": "B4",
+        "description": "Sums Book Amt across currencies without conversion",
+        "naive_value": 215501009.81,
+        "governed_value": 101140186.07,
+        "delta_pct": 113.07
+      },
+      "no_B5_usdbasis": {
+        "trap": "B5",
+        "description": "Uses USD GAAP Amount instead of USD Fixed Amount",
+        "naive_value": 102581633.1,
+        "governed_value": 101140186.07,
+        "delta_pct": 1.43
+      },
+      "no_F1_fiscal": {
+        "trap": "F1",
+        "description": "Reads the FY label as a calendar year",
+        "naive_value": 83032510.98,
+        "governed_value": 101140186.07,
+        "delta_pct": 17.9
+      },
+      "no_M1_custrole": {
+        "trap": "M1",
+        "description": "Counts End Users as customers",
+        "naive_value": 328.0,
+        "governed_value": 213.0,
+        "delta_pct": 53.99
+      },
+      "no_T1_tradescope": {
+        "trap": "T1",
+        "description": "Includes Interco in an external-market view",
+        "naive_value": 101140186.07,
+        "governed_value": 92207833.81,
+        "delta_pct": 9.69
+      }
+    }
+  }
+}

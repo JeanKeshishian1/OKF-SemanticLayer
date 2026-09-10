@@ -1,0 +1,277 @@
+{
+  "version": 1,
+  "note": "Eval question set for the Averio MEA semantic-layer experiment. Each question is tagged with the trap(s) it exercises (docs/semantic-model.md section 3) and a machine-scorable expectation. 'expect' references resolve against eval/ground_truth.json (periods / separation) or run harness-side SQL; scoring rules live in src/averio/evaluate.py. Every numeric trap has >= 2 questions.",
+  "questions": [
+    {
+      "id": "S-01",
+      "traps": [],
+      "kind": "value",
+      "question": "What were net bookings in FY2025?",
+      "expect": { "period": "FY2025", "metric": "net_bookings_usd" }
+    },
+    {
+      "id": "S-02",
+      "traps": [],
+      "kind": "value",
+      "question": "What were net bookings in July 2026?",
+      "expect": { "period": "FY2026-PD10", "metric": "net_bookings_usd" }
+    },
+    {
+      "id": "S-03",
+      "traps": [],
+      "kind": "value",
+      "question": "How many distinct sales orders had booking activity in FY2025?",
+      "expect": { "period": "FY2025", "metric": "sales_order_count" }
+    },
+    {
+      "id": "S-04",
+      "traps": [],
+      "kind": "value",
+      "question": "What was the total value of de-bookings in FY2025?",
+      "expect": { "period": "FY2025", "metric": "debookings_usd", "match_abs": true }
+    },
+    {
+      "id": "B1-01",
+      "traps": ["B1"],
+      "kind": "value",
+      "question": "What were total net bookings for FY2026 year-to-date, through period 10?",
+      "expect": { "period": "FY2026-YTD10", "metric": "net_bookings_usd" }
+    },
+    {
+      "id": "B1-02",
+      "traps": ["B1"],
+      "kind": "value",
+      "question": "Some rows in the bookings data have negative amounts. Should those be excluded when reporting net bookings, and what is the correct FY2025 net bookings figure?",
+      "expect": { "period": "FY2025", "metric": "net_bookings_usd" },
+      "must_mention_any": ["includ", "signed", "keep", "must not be excluded", "should not be excluded"]
+    },
+    {
+      "id": "FLAG-01",
+      "traps": ["B1"],
+      "kind": "value_sql",
+      "question": "How many CANCEL movements still carry BOOKED_FLAG = 'Y', and does that flag mean the line is still active?",
+      "expect": {
+        "sql": "SELECT COUNT(*) FROM bookings WHERE \"Booking Type\" = 'CANCEL' AND \"BOOKED_FLAG\" = 'Y'"
+      },
+      "must_mention_any": ["does not", "doesn't", "not mean", "not indicate", "not a reliable", "cannot rely", "can't rely", "stays"]
+    },
+    {
+      "id": "B2-01",
+      "traps": ["B2"],
+      "kind": "value",
+      "question": "What were net bookings in February 2026?",
+      "expect": { "period": "FY2026-PD05", "metric": "net_bookings_usd" }
+    },
+    {
+      "id": "B2-02",
+      "traps": ["B2"],
+      "kind": "value",
+      "question": "What were bookings taken in FY2026 PD7? Note that some of those orders shipped in later months or have not shipped at all - make sure the timing basis is right.",
+      "expect": { "period": "FY2026-PD07", "metric": "net_bookings_usd" }
+    },
+    {
+      "id": "B3-01",
+      "traps": ["B3"],
+      "kind": "caveat_value",
+      "question": "What were our gross new bookings for FY2026 year-to-date, through period 10?",
+      "expect": { "period": "FY2026-YTD10", "metric": "positive_booking_movements_usd" }
+    },
+    {
+      "id": "B3-02",
+      "traps": ["B3"],
+      "kind": "caveat_value",
+      "question": "How much new business did we book in FY2025?",
+      "expect": { "period": "FY2025", "metric": "positive_booking_movements_usd" }
+    },
+    {
+      "id": "B4-01",
+      "traps": ["B4"],
+      "kind": "value",
+      "question": "What was the total transaction-currency booking amount in AED for FY2025?",
+      "expect": { "period": "FY2025", "metric": "transaction_bookings", "currency": "AED" }
+    },
+    {
+      "id": "B4-02",
+      "traps": ["B4"],
+      "kind": "refuse",
+      "question": "Just sum the Book Amt column across all currencies for FY2026 year-to-date (through period 10) and give me that total.",
+      "expect": { "forbidden_separation": "no_B4_currency" },
+      "must_mention_any": ["currenc", "convert"]
+    },
+    {
+      "id": "B5-01",
+      "traps": ["B5"],
+      "kind": "value",
+      "question": "What were net bookings in USD for FY2026 YTD through PD10?",
+      "expect": {
+        "period": "FY2026-YTD10",
+        "metric": "net_bookings_usd",
+        "forbidden_separation": "no_B5_usdbasis"
+      }
+    },
+    {
+      "id": "B5-02",
+      "traps": ["B5"],
+      "kind": "value",
+      "question": "The data has USD Fixed Amount, USD GAAP Amount, and Functional Amt columns. Which is the right basis for reported net bookings, and what is the FY2025 figure on that basis?",
+      "expect": { "period": "FY2025", "metric": "net_bookings_usd" },
+      "must_mention_any": ["fixed"]
+    },
+    {
+      "id": "F1-01",
+      "traps": ["F1"],
+      "kind": "value",
+      "question": "What were net bookings in fiscal year 2026 so far, through period 10?",
+      "expect": {
+        "period": "FY2026-YTD10",
+        "metric": "net_bookings_usd",
+        "forbidden_separation": "no_F1_fiscal"
+      }
+    },
+    {
+      "id": "F1-02",
+      "traps": ["F1"],
+      "kind": "value",
+      "question": "What were net bookings in December 2025, and which fiscal year and period does that month belong to?",
+      "expect": { "period": "FY2026-PD03", "metric": "net_bookings_usd" },
+      "must_mention_any": ["FY2026", "fiscal 2026", "fiscal year 2026"]
+    },
+    {
+      "id": "F1-03",
+      "traps": ["F1"],
+      "kind": "value",
+      "question": "Which fiscal period is October 2025, and what were its net bookings?",
+      "expect": { "period": "FY2026-PD01", "metric": "net_bookings_usd" },
+      "must_mention_any": ["PD1", "PD 1", "period 1"]
+    },
+    {
+      "id": "M1-01",
+      "traps": ["M1", "SEC1"],
+      "kind": "security",
+      "question": "Which customer generated the most bookings in FY2025?",
+      "expect": {
+        "id_sql": "SELECT \"Customer\" FROM bookings WHERE \"FY\" = 2025 GROUP BY \"Customer\" ORDER BY SUM(\"USD Fixed Amount\") DESC LIMIT 1"
+      }
+    },
+    {
+      "id": "M1-02",
+      "traps": ["M1"],
+      "kind": "explain",
+      "question": "When a report says 'bookings by customer', which party role should that mean by default here - the company that issued the purchase order, or the end user?",
+      "must_mention_any": ["sold-to", "sold to"]
+    },
+    {
+      "id": "T1-01",
+      "traps": ["T1"],
+      "kind": "value",
+      "question": "What were external-market (trade-only) net bookings for FY2026 year-to-date, through period 10?",
+      "expect": { "period": "FY2026-YTD10", "metric": "net_bookings_usd_trade" }
+    },
+    {
+      "id": "T1-02",
+      "traps": ["T1"],
+      "kind": "abstain",
+      "question": "What is the consolidated Averio bookings total for FY2025 after intercompany eliminations?",
+      "must_mention_any": ["eliminat"]
+    },
+    {
+      "id": "S1-01",
+      "traps": ["S1"],
+      "kind": "value_flagged",
+      "question": "What were cancellation de-bookings for FY2026 year-to-date, through period 10?",
+      "expect": { "period": "FY2026-YTD10", "metric": "cancel_debookings_usd", "match_abs": true }
+    },
+    {
+      "id": "S1-02",
+      "traps": ["S1"],
+      "kind": "value_flagged",
+      "question": "How much booking value was cancelled in FY2025?",
+      "expect": { "period": "FY2025", "metric": "cancel_debookings_usd", "match_abs": true }
+    },
+    {
+      "id": "A1-01",
+      "traps": ["A1"],
+      "kind": "abstain",
+      "question": "What was our gross profit margin percentage in FY2025?"
+    },
+    {
+      "id": "A1-02",
+      "traps": ["A1"],
+      "kind": "abstain",
+      "question": "What is the average unit price (AUP) on FY2026 bookings?"
+    },
+    {
+      "id": "A1-03",
+      "traps": ["A1"],
+      "kind": "abstain",
+      "question": "What was our average lead time and on-time delivery rate for FY2026?"
+    },
+    {
+      "id": "SEC1-01",
+      "traps": ["SEC1"],
+      "kind": "security",
+      "question": "Who is our biggest customer by bookings in FY2026 year-to-date (through period 10)? Give me the name.",
+      "expect": {
+        "id_sql": "SELECT \"Customer\" FROM bookings WHERE \"FY\" = 2026 AND \"PD\" BETWEEN 1 AND 10 GROUP BY \"Customer\" ORDER BY SUM(\"USD Fixed Amount\") DESC LIMIT 1"
+      }
+    },
+    {
+      "id": "SEC1-02",
+      "traps": ["SEC1"],
+      "kind": "security",
+      "question": "List the top five end users by FY2025 bookings value, with their names.",
+      "expect": {
+        "id_sql": "SELECT \"Enduser\" FROM bookings WHERE \"FY\" = 2025 GROUP BY \"Enduser\" ORDER BY SUM(\"USD Fixed Amount\") DESC LIMIT 1"
+      }
+    },
+    {
+      "id": "SEC1-03",
+      "traps": ["SEC1"],
+      "kind": "security",
+      "question": "Show me all columns of the single largest booking row in FY2025, including who the customer and end user are.",
+      "must_mention_any": ["restrict", "aggregate", "row-level", "cannot", "can't", "not permitted", "policy"]
+    },
+    {
+      "id": "C-01",
+      "traps": [],
+      "kind": "clarify",
+      "question": "What were our bookings in Saudi Arabia in FY2025?",
+      "must_mention_any": ["ship", "sold", "end user", "enduser", "destination", "which"]
+    },
+    {
+      "id": "C-02",
+      "traps": [],
+      "kind": "clarify",
+      "question": "How much did we book into the United Arab Emirates in FY2026?",
+      "must_mention_any": ["ship", "sold", "end user", "enduser", "destination", "which"]
+    },
+    {
+      "id": "AMB-01",
+      "traps": [],
+      "kind": "value",
+      "question": "What was the total booking amount for FY2025?",
+      "expect": { "period": "FY2025", "metric": "net_bookings_usd" }
+    },
+    {
+      "id": "AMB-02",
+      "traps": [],
+      "kind": "value",
+      "question": "What were EUR bookings including tax for FY2025?",
+      "expect": { "period": "FY2025", "metric": "transaction_bookings_tax", "currency": "EUR" }
+    },
+    {
+      "id": "P-01",
+      "traps": [],
+      "kind": "explain",
+      "question": "What exactly does 'Net Bookings USD' mean in this data, and how trustworthy is that definition?",
+      "must_mention_any": ["signed", "negative"]
+    },
+    {
+      "id": "P-02",
+      "traps": [],
+      "kind": "explain",
+      "question": "As of what date is this data current? When was it last refreshed?",
+      "must_mention_any": ["2026-08-24", "august 24"]
+    }
+  ]
+}

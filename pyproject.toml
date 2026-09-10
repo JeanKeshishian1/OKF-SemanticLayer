@@ -1,0 +1,49 @@
+[project]
+name = "okf-capstone"
+version = "0.1.0"
+description = "OKF semantic layer capstone: Averio MEA governed bookings layer, resolver, agents, and eval"
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.1",
+    "pyyaml>=6.0",
+    # OpenAI-compatible client, pointed at OpenRouter (which serves the
+    # one model both agents share - the experiment's control variable).
+    "openai>=1.40",
+    # Loads the gitignored .env (copied from .env.example) into the
+    # environment, so the OpenRouter key never appears in code or repo.
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.16",
+]
+# The jury-demo server (src/averio/demo.py). Kept out of the core deps so
+# the experiment harness stays lean; install with: pip install -e .[dev,demo]
+demo = [
+    "fastapi>=0.110",
+    "uvicorn>=0.30",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+# Wider than the 88 default: the project style mandates heavy explanatory
+# comments, and cramming those into 88 columns hurts more than it helps.
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# Beyond the defaults (E4/E7/E9/F): full pycodestyle, import sorting,
+# pyupgrade, and bugbear. Deliberately no docstring or complexity rules —
+# this is a research harness, not a library.
+select = ["E", "W", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["averio"]

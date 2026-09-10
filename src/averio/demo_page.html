@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Averio Semantic Layer — Experiment Demo</title>
+<style>
+/* ---- Design tokens -------------------------------------------------------
+   Palette: the validated reference data-viz palette (documented pass in both
+   modes). Series identity is FIXED everywhere on this page:
+   slot 1 (blue) = governed agent, slot 2 (orange) = baseline agent.
+   Status colors are reserved for pass/fail and always ride with a glyph. */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --baseline: #c3c2b7; --ring: rgba(11,11,11,0.10);
+  --governed: #2a78d6;         /* categorical slot 1: blue  */
+  --baseline-agent: #eb6834;   /* categorical slot 2: orange */
+  --good: #0ca30c; --good-text: #006300; --critical: #d03b3b;
+  --track: #f0efec;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --baseline: #383835; --ring: rgba(255,255,255,0.10);
+    --governed: #3987e5;
+    --baseline-agent: #d95926;
+    --good: #0ca30c; --good-text: #0ca30c; --critical: #d03b3b;
+    --track: #262624;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 17px; margin: 36px 0 4px; }
+.sub { color: var(--ink-2); margin: 0 0 14px; }
+.card {
+  background: var(--surface); border: 1px solid var(--ring);
+  border-radius: 10px; padding: 16px;
+}
+code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+
+/* ---- Verdict tiles -------------------------------------------------------- */
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.tile .label { color: var(--ink-2); font-size: 12.5px; }
+.tile .value { font-size: 30px; font-weight: 650; margin-top: 2px; }
+.tile .detail { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.tile .value .who { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.status { display: inline-flex; align-items: center; gap: 5px; font-weight: 650; }
+.status.good { color: var(--good-text); }
+.status.bad { color: var(--critical); }
+
+/* ---- Per-trap chart (paired horizontal bars, CSS marks) ------------------- */
+.legend { display: flex; gap: 16px; align-items: center; margin: 6px 0 12px;
+          color: var(--ink-2); font-size: 12.5px; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block;
+          margin-right: 6px; vertical-align: -1px; }
+.trap-row { display: grid; grid-template-columns: 190px 1fr; gap: 12px;
+            align-items: center; padding: 5px 0; }
+.trap-name { font-size: 12.5px; color: var(--ink-2); text-align: right; }
+.trap-name b { color: var(--ink); font-weight: 600; }
+.bars { display: flex; flex-direction: column; gap: 2px; }   /* 2px pair gap */
+.track { background: var(--track); border-radius: 4px; height: 14px;
+         position: relative; }
+.bar { height: 14px; border-radius: 0 4px 4px 0; min-width: 2px;
+       position: absolute; left: 0; top: 0; }
+.bar.gov { background: var(--governed); }
+.bar.base { background: var(--baseline-agent); }
+.bar-label { position: absolute; left: calc(100% + 8px); top: -1px;
+             font-size: 11.5px; color: var(--ink-2); white-space: nowrap;
+             font-variant-numeric: tabular-nums; }
+#tooltip { position: fixed; pointer-events: none; background: var(--surface);
+           border: 1px solid var(--ring); border-radius: 8px; padding: 8px 10px;
+           font-size: 12.5px; box-shadow: 0 4px 14px rgba(0,0,0,.15);
+           display: none; z-index: 50; }
+
+/* ---- Architecture strip ---------------------------------------------------- */
+.path { display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+        margin: 8px 0; }
+.path .tag { font-size: 12px; font-weight: 650; width: 86px; }
+.chip { border: 1px solid var(--ring); background: var(--page);
+        border-radius: 999px; padding: 3px 10px; font-size: 12px;
+        color: var(--ink-2); white-space: nowrap; }
+.chip.hl-gov { border-color: var(--governed); color: var(--ink); }
+.chip.hl-base { border-color: var(--baseline-agent); color: var(--ink); }
+.arrow { color: var(--muted); font-size: 12px; }
+
+/* ---- Live ask --------------------------------------------------------------- */
+.ask-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.ask-bar select, .ask-bar input, .ask-bar button {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--baseline); border-radius: 8px; padding: 8px 10px;
+}
+.ask-bar input { flex: 1; min-width: 260px; }
+.ask-bar button { cursor: pointer; font-weight: 600; }
+.ask-bar button:disabled { opacity: .5; cursor: default; }
+#watchfor { color: var(--ink-2); font-size: 12.5px; min-height: 18px;
+            margin-bottom: 10px; }
+.duel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pane { min-height: 120px; }
+.pane h3 { margin: 0 0 8px; font-size: 13.5px; display: flex; gap: 8px;
+           align-items: center; }
+.pane h3 .dot { width: 10px; height: 10px; border-radius: 3px; }
+.pane .steps { color: var(--muted); font-weight: 400; font-size: 12px; }
+.events { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.ev { font-size: 12px; color: var(--ink-2); border-left: 3px solid var(--grid);
+      padding: 3px 8px; border-radius: 0 6px 6px 0; background: var(--page);
+      overflow-wrap: anywhere; }
+.ev .t { font-weight: 650; color: var(--ink); font-family: ui-monospace, Consolas, monospace; }
+.answer { border-top: 1px solid var(--grid); padding-top: 10px; font-size: 13px;
+          overflow-wrap: anywhere; }
+.answer strong { font-weight: 650; }
+.pulse { color: var(--muted); font-size: 12.5px; }
+.pulse::after { content: "…"; animation: dots 1.2s steps(4) infinite; }
+@keyframes dots { 0% { content: ""; } 25% { content: "."; }
+                  50% { content: ".."; } 75% { content: "..."; } }
+
+/* ---- Results browser --------------------------------------------------------- */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px;
+     padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+td { padding: 7px 8px; border-bottom: 1px solid var(--grid); }
+tr.qrow { cursor: pointer; }
+tr.qrow:hover td { background: var(--page); }
+.trapchip { border: 1px solid var(--ring); border-radius: 999px;
+            font-size: 11px; padding: 1px 8px; color: var(--ink-2);
+            margin-right: 4px; white-space: nowrap; }
+tr.detail-row > td { background: var(--page); padding: 14px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.detail-grid h4 { margin: 0 0 6px; font-size: 12.5px; display: flex; gap: 7px;
+                  align-items: center; }
+.detail-grid h4 .dot { width: 9px; height: 9px; border-radius: 3px; }
+.checks { margin: 6px 0; font-size: 12px; color: var(--ink-2); }
+.qtext { font-size: 13px; margin: 0 0 4px; }
+.trapnote { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+.toolseq { color: var(--muted); font-size: 11.5px; margin: 6px 0;
+           font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.small-ans { font-size: 12.5px; color: var(--ink-2); max-height: 260px;
+             overflow: auto; border: 1px solid var(--grid); border-radius: 8px;
+             padding: 10px; background: var(--surface); overflow-wrap: anywhere; }
+footer { color: var(--muted); font-size: 12px; margin-top: 40px;
+         border-top: 1px solid var(--grid); padding-top: 12px; }
+@media (max-width: 760px) {
+  .tiles { grid-template-columns: 1fr 1fr; }
+  .duel, .detail-grid { grid-template-columns: 1fr; }
+  .trap-row { grid-template-columns: 120px 1fr; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>Averio Governed Semantic Layer</h1>
+  <p class="sub">One model, one database, one tool loop — the only difference is
+  whether the agent consults a governed OKF semantic layer. These are the measured
+  consequences.</p>
+
+  <!-- Verdict: computed from /api/results, never hardcoded -->
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Accuracy by semantic trap</h2>
+  <p class="sub">Each trap is a documented governance rule a naive reading of the raw
+  schema gets wrong. Bars show correct answers per trap (hover for detail).</p>
+  <div class="card">
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--governed)"></span>Governed (with layer)</span>
+      <span><span class="swatch" style="background:var(--baseline-agent)"></span>Baseline (no layer)</span>
+    </div>
+    <div id="trapchart"></div>
+  </div>
+
+  <h2>How the two agents work</h2>
+  <div class="card">
+    <div class="path"><span class="tag" style="color:var(--baseline-agent)">Baseline</span>
+      <span class="chip">question</span><span class="arrow">→</span>
+      <span class="chip">LLM</span><span class="arrow">→</span>
+      <span class="chip hl-base">self-authored SQL</span><span class="arrow">→</span>
+      <span class="chip">answer</span>
+    </div>
+    <div class="path"><span class="tag" style="color:var(--governed)">Governed</span>
+      <span class="chip">question</span><span class="arrow">→</span>
+      <span class="chip hl-gov">resolve · ambiguity · security</span><span class="arrow">→</span>
+      <span class="chip hl-gov">sanctioned computation</span><span class="arrow">→</span>
+      <span class="chip hl-gov">executor receipt</span><span class="arrow">→</span>
+      <span class="chip hl-gov">attester verdict</span><span class="arrow">→</span>
+      <span class="chip">answer + provenance</span>
+    </div>
+  </div>
+
+  <h2>Ask both agents — live</h2>
+  <p class="sub">The question runs through both agents concurrently against the same
+  database; every tool call streams in as it happens.</p>
+  <div class="card">
+    <div class="ask-bar">
+      <select id="curated"><option value="">Curated questions…</option></select>
+      <input id="q" placeholder="…or type any question about the bookings data">
+      <button id="askbtn">Ask both agents</button>
+    </div>
+    <div id="watchfor"></div>
+    <div class="duel">
+      <div class="pane card" id="pane-baseline"></div>
+      <div class="pane card" id="pane-governed"></div>
+    </div>
+  </div>
+
+  <h2>Every recorded question</h2>
+  <p class="sub">The full eval run — click a row for both answers, the scoring detail,
+  and the tool trail.</p>
+  <div class="card" style="padding:0 0 4px">
+    <table id="browser"><thead><tr>
+      <th style="width:70px">ID</th><th>Question</th><th style="width:120px">Traps</th>
+      <th style="width:92px">Baseline</th><th style="width:92px">Governed</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+
+  <footer id="foot"></footer>
+</main>
+<div id="tooltip"></div>
+
+<script>
+/* Everything recorded on this page derives from /api/results at load time,
+   so a rerun of the experiment updates the demo with zero edits here. */
+
+const TRAP_NOTES = {
+  "B1":  "Signed movements — negative rows are real de-bookings, never filtered.",
+  "B2":  "Date basis — booking date, never shipment date.",
+  "B3":  "Positive movements ≠ “Gross New Bookings” (no approved gross-new metric).",
+  "B4":  "Never sum transaction amounts across currencies.",
+  "B5":  "USD Fixed Amount is the only sanctioned USD basis.",
+  "F1":  "Fiscal year runs Oct–Sep, named for its END year; PD1 = October.",
+  "M1":  "Sold-To customer ≠ End User — parallel roles, different IDs.",
+  "T1":  "External market = Trade only; a consolidated total is not servable.",
+  "S1":  "Stale computation — must be flagged, never served silently.",
+  "A1":  "Missing knowledge (GP, AUP, lead time…) — the right answer is abstention.",
+  "SEC1":"No person or organization names in any output.",
+  "(none)":"Straightforward or ambiguity-default question."
+};
+const TRAP_ORDER = ["(none)","B1","B2","B3","B4","B5","F1","M1","S1","SEC1","T1","A1"];
+const esc = s => (s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+/* Minimal markdown: the agents answer in light markdown; render just bold,
+   code and line breaks so text stays honest without a renderer dependency. */
+const md = s => esc(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+                      .replace(/`([^`]+)`/g, "<code>$1</code>")
+                      .replace(/\n/g, "<br>");
+const pct = (c, n) => n ? Math.round(100 * c / n) : 0;
+
+let DATA = null;
+
+async function boot() {
+  DATA = await (await fetch("/api/results")).json();
+  const cfg = await (await fetch("/api/config")).json();
+  renderTiles(); renderTraps(); renderBrowser();
+  document.getElementById("foot").textContent =
+    `Model ${DATA.meta.model} via OpenRouter · temperature 0 · ` +
+    `${DATA.meta.n_questions} questions × 2 agents · run started ${DATA.meta.started} · ` +
+    `deterministic scorer (no LLM judge) · synthetic data, all names fictional` +
+    (cfg.live_ready ? "" : " · live section needs data/averio.duckdb");
+  loadCurated();
+}
+
+function renderTiles() {
+  const sc = DATA.scorecard, g = sc.governed, b = sc.baseline;
+  document.getElementById("tiles").innerHTML = `
+    <div class="card tile"><div class="label">Governed agent — correct</div>
+      <div class="value" style="color:var(--governed)">${pct(g.correct,g.total)}%</div>
+      <div class="detail">${g.correct}/${g.total} questions</div></div>
+    <div class="card tile"><div class="label">Baseline agent — correct</div>
+      <div class="value" style="color:var(--baseline-agent)">${pct(b.correct,b.total)}%</div>
+      <div class="detail">${b.correct}/${b.total} questions</div></div>
+    <div class="card tile"><div class="label">Restricted-name leaks</div>
+      <div class="value"><span class="status ${g.leaks ? "bad" : "good"}">${g.leaks ? "✗" : "✓"} ${g.leaks}</span>
+        <span class="who">governed</span></div>
+      <div class="detail"><span class="status ${b.leaks ? "bad" : "good"}">${b.leaks ? "✗" : "✓"} ${b.leaks}</span> baseline</div></div>
+    <div class="card tile"><div class="label">Everything else</div>
+      <div class="value" style="font-size:16px;line-height:1.4">identical</div>
+      <div class="detail">same model, data, tools, temperature, context volume</div></div>`;
+}
+
+function renderTraps() {
+  const tip = document.getElementById("tooltip");
+  const host = document.getElementById("trapchart");
+  const traps = TRAP_ORDER.filter(t => DATA.scorecard.governed.by_trap[t]);
+  host.innerHTML = traps.map(t => {
+    const g = DATA.scorecard.governed.by_trap[t], b = DATA.scorecard.baseline.by_trap[t];
+    const label = t === "(none)" ? "Straightforward" : t;
+    return `<div class="trap-row"><div class="trap-name"><b>${label}</b></div>
+      <div class="bars">
+        <div class="track"><div class="bar gov" data-tip="Governed — ${label}: ${g.correct}/${g.n} correct (${pct(g.correct,g.n)}%)"
+             style="width:${pct(g.correct,g.n)}%"></div>
+             <span class="bar-label">${g.correct}/${g.n}</span></div>
+        <div class="track"><div class="bar base" data-tip="Baseline — ${label}: ${b.correct}/${b.n} correct (${pct(b.correct,b.n)}%)"
+             style="width:${pct(b.correct,b.n)}%"></div>
+             <span class="bar-label">${b.correct}/${b.n}</span></div>
+      </div></div>`;
+  }).join("");
+  host.addEventListener("mousemove", e => {
+    const bar = e.target.closest(".bar");
+    if (!bar) { tip.style.display = "none"; return; }
+    tip.textContent = bar.dataset.tip;
+    tip.style.display = "block";
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - 260) + "px";
+    tip.style.top = (e.clientY + 14) + "px";
+  });
+  host.addEventListener("mouseleave", () => tip.style.display = "none");
+}
+
+/* ---- Recorded-results browser ------------------------------------------- */
+function badge(ok) {
+  return ok ? `<span class="status good">✓ pass</span>`
+            : `<span class="status bad">✗ fail</span>`;
+}
+function byQuestion() {
+  const map = new Map();
+  for (const r of DATA.results) {
+    if (!map.has(r.id)) map.set(r.id, {id: r.id, traps: r.traps, kind: r.kind,
+                                       question: r.question});
+    map.get(r.id)[r.agent] = r;
+  }
+  return [...map.values()];
+}
+function toolSeq(r) {
+  const seq = (r.transcript || []).filter(e => e.type === "tool_call")
+                                  .map(e => e.tool);
+  return seq.length ? seq.join(" → ") : "(no tool calls)";
+}
+function attestation(r) {
+  // Surface the receipt hash of the last successful compute call, if any -
+  // the on-stage proof that the figure is attested, not asserted.
+  const computes = (r.transcript || []).filter(e =>
+    e.type === "tool_call" && e.tool === "compute" && e.result && e.result.attested);
+  if (!computes.length) return "";
+  const receipt = computes[computes.length - 1].result.receipt || {};
+  const hash = (receipt.query_hash || "").slice(0, 16);
+  return `<div class="toolseq">attested ✓ · receipt sha256 ${esc(hash)}…</div>`;
+}
+function renderBrowser() {
+  const tbody = document.querySelector("#browser tbody");
+  tbody.innerHTML = byQuestion().map((q, i) => `
+    <tr class="qrow" data-i="${i}">
+      <td class="mono">${esc(q.id)}</td>
+      <td>${esc(q.question)}</td>
+      <td>${(q.traps.length ? q.traps : []).map(t => `<span class="trapchip">${esc(t)}</span>`).join("") || "<span class='trapchip'>—</span>"}</td>
+      <td>${badge(q.baseline?.score.correct)}</td>
+      <td>${badge(q.governed?.score.correct)}</td>
+    </tr>`).join("");
+  tbody.addEventListener("click", e => {
+    const row = e.target.closest("tr.qrow");
+    if (!row) return;
+    const open = row.nextElementSibling?.classList.contains("detail-row");
+    document.querySelectorAll(".detail-row").forEach(d => d.remove());
+    if (open) return;
+    const q = byQuestion()[Number(row.dataset.i)];
+    const detail = document.createElement("tr");
+    detail.className = "detail-row";
+    detail.innerHTML = `<td colspan="5">
+      <p class="qtext"><strong>${esc(q.question)}</strong></p>
+      <p class="trapnote">${(q.traps.length ? q.traps : ["(none)"])
+          .map(t => esc(TRAP_NOTES[t] || t)).join(" · ")}</p>
+      <div class="detail-grid">${["baseline","governed"].map(a => {
+        const r = q[a]; if (!r) return "<div>—</div>";
+        const color = a === "governed" ? "var(--governed)" : "var(--baseline-agent)";
+        const checks = Object.entries(r.score.checks).map(([k, v]) =>
+          `<div>${v ? "✓" : "✗"} ${esc(k.replaceAll("_", " "))}</div>`).join("");
+        const leak = r.score.leaked_names.length
+          ? `<div class="status bad">✗ leaked ${r.score.leaked_names.length} restricted name(s)</div>` : "";
+        return `<div><h4><span class="dot" style="background:${color}"></span>
+            ${a} — ${badge(r.score.correct)} <span class="steps">· ${r.steps} steps</span></h4>
+          <div class="toolseq">${esc(toolSeq(r))}</div>
+          ${a === "governed" ? attestation(r) : ""}
+          <div class="checks">${checks}${leak}</div>
+          <div class="small-ans">${md(r.answer)}</div></div>`;
+      }).join("")}</div></td>`;
+    row.after(detail);
+  });
+}
+
+/* ---- Live section ---------------------------------------------------------- */
+async function loadCurated() {
+  const list = await (await fetch("/api/curated")).json();
+  const sel = document.getElementById("curated");
+  for (const c of list) {
+    const opt = document.createElement("option");
+    opt.value = c.question; opt.textContent = `${c.id} — ${c.question}`;
+    opt.dataset.watch = c.watch_for;
+    sel.appendChild(opt);
+  }
+  sel.addEventListener("change", () => {
+    document.getElementById("q").value = sel.value;
+    document.getElementById("watchfor").textContent =
+      sel.selectedOptions[0]?.dataset.watch || "";
+  });
+}
+
+function paneInit(name, color) {
+  const pane = document.getElementById("pane-" + name);
+  pane.innerHTML = `<h3><span class="dot" style="background:${color}"></span>
+      ${name} <span class="steps" id="steps-${name}"></span></h3>
+    <div class="events" id="ev-${name}"></div>
+    <div class="pulse" id="pulse-${name}">working</div>
+    <div class="answer" id="ans-${name}" hidden></div>`;
+}
+
+function ask() {
+  const q = document.getElementById("q").value.trim();
+  if (!q) return;
+  const btn = document.getElementById("askbtn");
+  btn.disabled = true;
+  paneInit("baseline", "var(--baseline-agent)");
+  paneInit("governed", "var(--governed)");
+  const es = new EventSource("/api/ask?q=" + encodeURIComponent(q));
+  es.onmessage = m => {
+    const e = JSON.parse(m.data);
+    if (e.type === "done") { es.close(); btn.disabled = false; return; }
+    if (e.type === "tool_call") {
+      const div = document.createElement("div");
+      div.className = "ev";
+      const args = (e.arguments || "").slice(0, 160);
+      div.innerHTML = `<span class="t">${esc(e.tool)}</span> ${esc(args)}`;
+      div.style.borderLeftColor = e.agent === "governed"
+        ? "var(--governed)" : "var(--baseline-agent)";
+      document.getElementById("ev-" + e.agent).appendChild(div);
+    } else if (e.type === "final") {
+      document.getElementById("pulse-" + e.agent).hidden = true;
+      document.getElementById("steps-" + e.agent).textContent = `· ${e.steps} steps`;
+      const ans = document.getElementById("ans-" + e.agent);
+      ans.hidden = false; ans.innerHTML = md(e.answer || "(empty answer)");
+    } else if (e.type === "error") {
+      document.getElementById("pulse-" + e.agent).hidden = true;
+      const ans = document.getElementById("ans-" + e.agent);
+      ans.hidden = false;
+      ans.innerHTML = `<span class="status bad">✗ ${esc(e.message)}</span>`;
+    }
+  };
+  es.onerror = () => { es.close(); btn.disabled = false; };
+}
+document.getElementById("askbtn").addEventListener("click", ask);
+document.getElementById("q").addEventListener("keydown",
+  e => { if (e.key === "Enter") ask(); });
+
+boot();
+</script>
+</body>
+</html>

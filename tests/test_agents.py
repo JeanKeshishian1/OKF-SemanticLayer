@@ -106,6 +106,37 @@ def test_runner_reports_exhausted_budget_honestly():
     assert result["transcript"][-1]["type"] == "budget_exhausted"
 
 
+def test_runner_accumulates_usage_and_cost():
+    """Spend accounting: token counts and OpenRouter's per-request cost
+    fold into the result, so the eval attributes real USD per question and
+    the demo shows it live. Responses without usage (the other fakes here)
+    must simply accumulate nothing rather than crash."""
+    responses = [
+        SimpleNamespace(
+            choices=[SimpleNamespace(message=_assistant(
+                tool_calls=[_tool_call("echo", '{"text": "hi"}')]))],
+            usage=SimpleNamespace(prompt_tokens=100, completion_tokens=20,
+                                  cost=0.0012)),
+        SimpleNamespace(
+            choices=[SimpleNamespace(message=_assistant(content="done"))],
+            usage=SimpleNamespace(prompt_tokens=150, completion_tokens=30,
+                                  cost=0.0018)),
+    ]
+    echo = Tool(name="echo", description="echo",
+                parameters={"type": "object",
+                            "properties": {"text": {"type": "string"}},
+                            "required": ["text"]},
+                fn=lambda text: {"echoed": text})
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(
+        create=lambda **kw: responses.pop(0))))
+    runner = AgentRunner(name="t", system_prompt="s", tools=[echo],
+                         client=client, model="fake")
+    result = runner.ask("q")
+    assert result["usage"] == {"requests": 2, "prompt_tokens": 250,
+                               "completion_tokens": 50,
+                               "cost_usd": pytest.approx(0.003)}
+
+
 # --- run_sql: the shared data-access tool -------------------------------------
 
 def test_run_sql_caps_rows_and_reports_errors(workspace):

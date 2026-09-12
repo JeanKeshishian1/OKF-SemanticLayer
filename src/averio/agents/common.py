@@ -206,11 +206,40 @@ class AgentRunner:
             transcript.append(entry)
             if on_event is not None:
                 on_event(entry)
+
+        # Spend accounting. OpenRouter reports token counts on every
+        # response and - with usage accounting enabled via the extra_body
+        # below - the request's cost in USD credits. Totals ride along in
+        # the result so the eval can attribute real cost per question and
+        # the demo can show it live. Observation only: it never alters the
+        # loop, and fakes without a usage field simply accumulate zeros.
+        usage = {"requests": 0, "prompt_tokens": 0,
+                 "completion_tokens": 0, "cost_usd": 0.0}
+
+        def account(response) -> None:
+            u = getattr(response, "usage", None)
+            if u is None:
+                return
+            usage["requests"] += 1
+            usage["prompt_tokens"] += getattr(u, "prompt_tokens", 0) or 0
+            usage["completion_tokens"] += getattr(u, "completion_tokens", 0) or 0
+            # The SDK's usage model carries OpenRouter's `cost` as an
+            # extra field; older SDKs expose extras only via model_extra.
+            cost = getattr(u, "cost", None)
+            if cost is None:
+                cost = (getattr(u, "model_extra", None) or {}).get("cost")
+            if cost:
+                usage["cost_usd"] += float(cost)
+
         for step in range(1, MAX_STEPS + 1):
             response = self.client.chat.completions.create(
                 model=self.model, messages=messages,
                 tools=[t.spec() for t in self.tools],
-                temperature=TEMPERATURE, max_tokens=MAX_TOKENS)
+                temperature=TEMPERATURE, max_tokens=MAX_TOKENS,
+                # OpenRouter usage accounting: ask for the cost of each
+                # request in the response. Ignored by test fakes.
+                extra_body={"usage": {"include": True}})
+            account(response)
             message = response.choices[0].message
             tool_calls = getattr(message, "tool_calls", None) or []
             # Rebuild the assistant turn as a plain dict: the SDK returns
@@ -240,7 +269,7 @@ class AgentRunner:
                 record({"step": step, "type": "answer", "content": content})
                 return {"agent": self.name, "question": question,
                         "answer": content, "steps": step,
-                        "transcript": transcript}
+                        "transcript": transcript, "usage": usage}
 
             for tc in tool_calls:
                 result = self._execute(tc.function.name, tc.function.arguments)
@@ -255,7 +284,7 @@ class AgentRunner:
         record({"step": MAX_STEPS, "type": "budget_exhausted"})
         return {"agent": self.name, "question": question,
                 "answer": "[no final answer within the step budget]",
-                "steps": MAX_STEPS, "transcript": transcript}
+                "steps": MAX_STEPS, "transcript": transcript, "usage": usage}
 
     def _execute(self, name: str, raw_arguments: str) -> Any:
         """Run one tool call; failures become data the model can react to

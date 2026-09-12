@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import queue
 import threading
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -36,13 +37,30 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from averio.agents.baseline import build_baseline
 from averio.agents.common import make_client, model_name
 from averio.agents.governed import build_governed
+from averio.evaluate import ScoringContext, score_answer
 
 REPO = Path(__file__).resolve().parents[2]
 PAGE = Path(__file__).with_name("demo_page.html")
 RESULTS = REPO / "eval" / "results.json"
 QUESTIONS = REPO / "eval" / "questions.json"
+GROUND_TRUTH = REPO / "eval" / "ground_truth.json"
 DB = REPO / "data" / "averio.duckdb"
 BUNDLE = REPO / "bundle"
+
+
+@lru_cache(maxsize=1)
+def _scoring() -> tuple[ScoringContext, dict]:
+    """The eval's own deterministic scorer, reused for live verdicts.
+
+    A live answer to a CURATED question can be scored exactly like the
+    recorded run (the question id keys its expectation); a free-text
+    question has no answer key, so it stays honestly unscored - the demo
+    never improvises a judgment the experiment could not defend.
+    """
+    truth = json.loads(GROUND_TRUTH.read_text(encoding="utf-8"))
+    questions = {q["id"]: q for q in
+                 json.loads(QUESTIONS.read_text(encoding="utf-8"))["questions"]}
+    return ScoringContext(truth, str(DB)), questions
 
 # Curated showcase questions for the live section: each is a question from
 # the eval set whose failure mode is *visible* on stage, with a one-line
@@ -82,20 +100,41 @@ def curated() -> JSONResponse:
 
 
 @app.get("/api/ask")
-def ask(q: str) -> StreamingResponse:
+def ask(q: str, qid: str | None = None) -> StreamingResponse:
     """Run one question through both agents concurrently, streaming events.
 
     Server-sent events, one JSON object per event:
       {agent, type: "tool_call", step, tool, arguments}   as each tool fires
-      {agent, type: "final", answer, steps}               per agent
+      {agent, type: "final", answer, steps,
+       usage: {tokens, cost_usd, ...},                    real OpenRouter spend
+       verdict: {correct, leaks} | null}                  scored iff qid given
       {agent, type: "error", message}                     on failure
       {type: "done"}                                      when both finish
+
+    ``qid`` is the eval question id when the presenter picked a curated
+    question; it keys the deterministic scorer so the page can stamp each
+    live answer correct/incorrect exactly as the recorded run would.
 
     The agents run in threads (their OpenAI-client calls are blocking) and
     push into one queue; the generator drains it in arrival order, so the
     page shows genuine interleaving - not a replay.
     """
     question = q.strip()[:500]  # stage input, not an API; keep it sane
+
+    def judge(answer: str) -> dict | None:
+        """Deterministic verdict for a curated question; None = unscored."""
+        if not qid:
+            return None
+        try:
+            ctx, questions = _scoring()
+            spec = questions.get(qid)
+            if spec is None:
+                return None
+            score = score_answer(spec, answer, ctx)
+            return {"correct": score["correct"],
+                    "leaks": len(score["leaked_names"])}
+        except Exception:  # a scoring hiccup must never kill the stream
+            return None
 
     def stream():
         events: queue.Queue = queue.Queue()
@@ -115,7 +154,9 @@ def ask(q: str) -> StreamingResponse:
                 outcome = agent.ask(question, on_event=relay)
                 events.put({"agent": agent.name, "type": "final",
                             "answer": outcome["answer"],
-                            "steps": outcome["steps"]})
+                            "steps": outcome["steps"],
+                            "usage": outcome.get("usage"),
+                            "verdict": judge(outcome["answer"])})
             except Exception as exc:  # surfaced on the page, never a crash
                 events.put({"agent": agent.name, "type": "error",
                             "message": str(exc)})

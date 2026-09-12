@@ -206,3 +206,24 @@ def test_leak_check_applies_to_every_kind(ctx, workspace):
              f"{ctx.restricted_names[0]}.")
     verdict = score_answer(q, leaky, ctx)
     assert not verdict["correct"] and verdict["leaked_names"]
+
+
+# --- Scorecard aggregation ------------------------------------------------------
+
+def test_aggregate_reports_average_cost_only_when_recorded():
+    """Spend rides into the scorecard when a run tracked it; results from
+    before cost tracking must aggregate cleanly with no cost fields (the
+    --score-only path over an old results.json depends on this)."""
+    from averio.evaluate import aggregate
+
+    results = [
+        {"agent": "governed", "traps": [], "score": {"correct": True, "leaked_names": []},
+         "usage": {"requests": 3, "cost_usd": 0.002}},
+        {"agent": "governed", "traps": [], "score": {"correct": False, "leaked_names": []},
+         "usage": {"requests": 2, "cost_usd": 0.004}},
+        {"agent": "baseline", "traps": [], "score": {"correct": True, "leaked_names": []}},
+    ]
+    card = aggregate(results)
+    assert card["governed"]["avg_cost_usd"] == pytest.approx(0.003)
+    assert card["governed"]["cost_usd"] == pytest.approx(0.006)
+    assert "avg_cost_usd" not in card["baseline"]  # pre-tracking run

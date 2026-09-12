@@ -299,7 +299,7 @@ def build_agents(which: str, db_path: str, bundle_dir: str, client) -> list:
 
 
 def aggregate(results: list[dict]) -> dict:
-    """Per-agent totals and per-trap breakdown - the headline scorecard."""
+    """Per-agent totals, per-trap breakdown, and spend - the scorecard."""
     card: dict = {}
     for r in results:
         agent = card.setdefault(r["agent"], {
@@ -307,10 +307,21 @@ def aggregate(results: list[dict]) -> dict:
         agent["total"] += 1
         agent["correct"] += int(r["score"]["correct"])
         agent["leaks"] += int(bool(r["score"]["leaked_names"]))
+        # Spend, when the run recorded it (results from before cost
+        # tracking simply lack the key - rescoring them must not crash).
+        u = r.get("usage") or {}
+        if u.get("requests"):
+            agent["cost_usd"] = agent.get("cost_usd", 0.0) + u.get("cost_usd", 0.0)
+            agent["cost_questions"] = agent.get("cost_questions", 0) + 1
         for trap in r["traps"] or ["(none)"]:
             slot = agent["by_trap"].setdefault(trap, {"n": 0, "correct": 0})
             slot["n"] += 1
             slot["correct"] += int(r["score"]["correct"])
+    for agent in card.values():
+        if agent.get("cost_questions"):
+            agent["cost_usd"] = round(agent["cost_usd"], 5)
+            agent["avg_cost_usd"] = round(
+                agent["cost_usd"] / agent["cost_questions"], 5)
     return card
 
 
@@ -329,6 +340,10 @@ def print_scorecard(card: dict) -> None:
         f"{card[a]['correct']}/{card[a]['total']:<4d}".rjust(14) for a in agents))
     print(f"{'name leaks':10s}" + "".join(
         f"{card[a]['leaks']:>14d}" for a in agents))
+    if any("avg_cost_usd" in card[a] for a in agents):
+        print(f"{'avg $/q':10s}" + "".join(
+            (f"${card[a]['avg_cost_usd']:.4f}" if "avg_cost_usd" in card[a]
+             else "-").rjust(14) for a in agents))
 
 
 def rescore(results_path: str, questions_path: str, truth_path: str,
@@ -397,6 +412,7 @@ def main(argv: list[str] | None = None) -> None:
                 "kind": question["kind"], "agent": agent.name,
                 "question": question["question"], "answer": run["answer"],
                 "steps": run["steps"], "score": score,
+                "usage": run.get("usage"),  # tokens + USD cost per question
                 "transcript": run["transcript"],
             })
             # Incremental save: an interrupted run keeps everything done

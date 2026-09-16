@@ -38,6 +38,7 @@ from averio.agents.baseline import build_baseline
 from averio.agents.common import make_client, model_name
 from averio.agents.governed import build_governed
 from averio.evaluate import ScoringContext, score_answer
+from averio.semantic_layer import layer_confidence
 
 REPO = Path(__file__).resolve().parents[2]
 PAGE = Path(__file__).with_name("demo_page.html")
@@ -85,9 +86,18 @@ def page() -> str:
 
 @app.get("/api/results")
 def results() -> JSONResponse:
-    """The latest full eval run, verbatim - the page derives every recorded
-    number from this, so demo and experiment can never disagree."""
-    return JSONResponse(json.loads(RESULTS.read_text(encoding="utf-8")))
+    """The latest full eval run - the page derives every recorded number
+    from this, so demo and experiment can never disagree.
+
+    Governed rows are enriched on the fly with the layer-derived confidence
+    (computed here, from the stored transcript, by the same function the
+    live stream uses - one implementation, no chance of drift; it also
+    means runs recorded before the feature existed get the chip)."""
+    data = json.loads(RESULTS.read_text(encoding="utf-8"))
+    for row in data.get("results", []):
+        if isinstance(row, dict) and row.get("agent") == "governed":
+            row["layer_confidence"] = layer_confidence(row.get("transcript"))
+    return JSONResponse(data)
 
 
 @app.get("/api/curated")
@@ -156,6 +166,15 @@ def ask(q: str, qid: str | None = None) -> StreamingResponse:
                             "answer": outcome["answer"],
                             "steps": outcome["steps"],
                             "usage": outcome.get("usage"),
+                            # The model's self-reported 0-100 confidence
+                            # (None when it failed to state one).
+                            "confidence": outcome.get("confidence"),
+                            # The governed side also carries the calculated
+                            # counterpart: what the layer's own signals
+                            # (attestation, trust tier, staleness) prove.
+                            "layer_confidence": (
+                                layer_confidence(outcome.get("transcript"))
+                                if agent.name == "governed" else None),
                             "verdict": judge(outcome["answer"])})
             except Exception as exc:  # surfaced on the page, never a crash
                 events.put({"agent": agent.name, "type": "error",

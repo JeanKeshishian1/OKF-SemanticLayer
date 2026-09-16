@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from averio.agents.common import AgentRunner, Tool
 from averio.demo import app
+from averio.semantic_layer import layer_confidence
 
 REPO = Path(__file__).resolve().parents[1]
 client = TestClient(app)
@@ -30,6 +31,52 @@ def test_page_and_recorded_results_serve():
     results = client.get("/api/results").json()
     assert {"baseline", "governed"} <= set(results["scorecard"])
     assert results["results"], "results.json has no recorded runs"
+    # Governed rows are enriched with the layer-derived confidence on the
+    # fly, from stored transcripts - runs recorded before the feature
+    # existed still get the chip.
+    governed = [r for r in results["results"] if r["agent"] == "governed"]
+    assert governed and all(
+        r["layer_confidence"]["level"] in ("high", "medium", "stale", "policy")
+        for r in governed)
+    assert not any("layer_confidence" in r for r in results["results"]
+                   if r["agent"] == "baseline")
+
+
+def test_layer_confidence_rubric_is_deterministic():
+    """The calculated confidence looks only at what the layer served:
+    attestation (40) + verification tier (25/10) + freshness (25/0) +
+    dataset corroboration (10/0) - never the answer's wording. Multiple
+    figures score conservatively, and the breakdown itemizes every point
+    (the chip's hover renders it verbatim)."""
+    def compute_entry(tier="human-reviewed", stale=False, attested=True,
+                      confidence="confirmed-internally"):
+        return {"type": "tool_call", "tool": "compute",
+                "result": {"attested": attested, "stale": stale,
+                           "provenance": {"trust_tier": tier,
+                                          "confidence": confidence}}}
+
+    full = layer_confidence([compute_entry(
+        confidence="confirmed-plus-dataset-supported")])
+    assert (full["level"], full["score"]) == ("high", 100)
+    assert len(full["breakdown"]) == 4
+
+    assert layer_confidence([compute_entry()])["score"] == 90  # no corroboration
+    machine = layer_confidence([compute_entry(), compute_entry(
+        tier="machine-confirmed")])
+    assert (machine["level"], machine["score"]) == ("medium", 75)
+    stale = layer_confidence([compute_entry(stale=True)])
+    assert (stale["level"], stale["score"]) == ("stale", 65)
+    assert layer_confidence([compute_entry(
+        tier="machine-confirmed", stale=True)])["score"] == 50
+
+    # A refused/unattested compute is not evidence of a served figure -
+    # policy-based answers carry no score at all, honestly.
+    for transcript in ([compute_entry(attested=False)],
+                       [{"type": "tool_call", "tool": "resolve",
+                         "result": {"resolved": None}}],
+                       None):
+        verdict = layer_confidence(transcript)
+        assert (verdict["level"], verdict["score"]) == ("policy", None)
 
 
 def test_curated_questions_come_from_the_eval_set():

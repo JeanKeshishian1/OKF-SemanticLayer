@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -167,6 +168,42 @@ def column_profiles(db_path: str) -> str:
     return "Column profile of the extract:\n" + "\n".join(lines)
 
 
+# Both agents must self-report how sure they are of each answer. The
+# instruction is appended by the RUNNER (not the agent builders) so it is
+# impossible for the two prompts to drift apart - a symmetric addition is
+# presentation machinery, not governance knowledge. The runner extracts and
+# STRIPS the line from the returned answer, so the deterministic scorer
+# never sees a stray percentage (which would trip the abstention checks);
+# the verbatim final message stays in the transcript.
+CONFIDENCE_INSTRUCTION = (
+    "\n\nEnd every final answer with its own last line in exactly this "
+    "form:\nConfidence: NN%\nwhere NN is 0-100 and states how confident "
+    "you are that the answer above is correct and complete. Required on "
+    "every answer, including refusals and clarifications.")
+
+# Accepts "Confidence: 85%", "confidence = 85", "**Confidence: 85/100**".
+_CONFIDENCE_LINE = re.compile(
+    r"(?im)^\s*\**\s*confidence\s*[:=]\s*(\d{1,3})\s*(?:%|/\s*100)?\s*\**\s*$")
+
+
+def extract_confidence(text: str) -> tuple[str, int | None]:
+    """Split a final answer into (answer-without-the-line, confidence).
+
+    Only a TRAILING confidence line is stripped - a mid-answer mention
+    (e.g. the agent quoting the instruction) still yields the value but
+    never mangles the answer body. Values clamp to 0-100; absence returns
+    None, which the UI shows honestly as "not stated".
+    """
+    matches = list(_CONFIDENCE_LINE.finditer(text))
+    if not matches:
+        return text, None
+    last = matches[-1]
+    value = max(0, min(100, int(last.group(1))))
+    if not text[last.end():].strip():  # it is the trailing line - remove it
+        return text[:last.start()].rstrip(), value
+    return text, value
+
+
 class AgentRunner:
     """The tool loop both agents run - identical by construction.
 
@@ -181,7 +218,7 @@ class AgentRunner:
     def __init__(self, *, name: str, system_prompt: str, tools: list[Tool],
                  client=None, model: str | None = None):
         self.name = name
-        self.system_prompt = system_prompt
+        self.system_prompt = system_prompt + CONFIDENCE_INSTRUCTION
         self.tools = tools
         self._by_name = {t.name: t for t in tools}
         self.client = client
@@ -267,9 +304,11 @@ class AgentRunner:
                                      "State your final answer now."})
                     continue
                 record({"step": step, "type": "answer", "content": content})
+                answer, confidence = extract_confidence(content)
                 return {"agent": self.name, "question": question,
-                        "answer": content, "steps": step,
-                        "transcript": transcript, "usage": usage}
+                        "answer": answer, "confidence": confidence,
+                        "steps": step, "transcript": transcript,
+                        "usage": usage}
 
             for tc in tool_calls:
                 result = self._execute(tc.function.name, tc.function.arguments)
@@ -284,7 +323,8 @@ class AgentRunner:
         record({"step": MAX_STEPS, "type": "budget_exhausted"})
         return {"agent": self.name, "question": question,
                 "answer": "[no final answer within the step budget]",
-                "steps": MAX_STEPS, "transcript": transcript, "usage": usage}
+                "confidence": None, "steps": MAX_STEPS,
+                "transcript": transcript, "usage": usage}
 
     def _execute(self, name: str, raw_arguments: str) -> Any:
         """Run one tool call; failures become data the model can react to

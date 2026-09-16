@@ -38,6 +38,70 @@ from averio.bundle_loader import Bundle, Concept, normalize_term, parse_tables
 from averio.executor import execute
 
 
+def layer_confidence(transcript) -> dict:
+    """Governance-backed confidence for a governed answer - calculated, not
+    self-reported.
+
+    A deterministic function over the run's transcript: it looks only at
+    what the layer actually served (attested compute results, their trust
+    tiers, staleness, and corroboration) and never at the answer's wording.
+    It is the counterpart to the model's verbalized "Confidence: NN%": the
+    model reports what it *feels*; this reports what the governance can
+    *prove* - as a 0-100 score from a transparent points rubric, with the
+    itemized breakdown returned so the UI can show WHY the number is what
+    it is. Multiple served figures score conservatively (worst case per
+    component).
+
+        Attestation    40  every served figure carries a passing receipt
+        Verification   25  all metric definitions human-verified
+                       10  ...only machine-verified (strongly supported)
+        Freshness      25  nothing past its stale_after; 0 when stale
+        Corroboration  10  definitions also dataset-supported
+
+    Answers that served NO computed figure (abstentions, clarifications,
+    refusals) are "policy-based": there is no figure to score, so they get
+    a label instead of a percentage - that describes the kind of evidence,
+    not a defect. ``level`` (high/medium/stale/policy) rides along for
+    styling and tests.
+    """
+    computes = [
+        entry["result"] for entry in (transcript or [])
+        if isinstance(entry, dict) and entry.get("type") == "tool_call"
+        and entry.get("tool") == "compute"
+        and isinstance(entry.get("result"), dict) and entry["result"].get("attested")
+    ]
+    if not computes:
+        return {"level": "policy", "score": None, "label": "Layer: policy-based",
+                "reason": ("No computed figure was served - the reply rests on "
+                           "term resolution, policies, or refusal rules.")}
+
+    provenances = [result.get("provenance") or {} for result in computes]
+    human = all(p.get("trust_tier") == "human-reviewed" for p in provenances)
+    fresh = not any(result.get("stale") for result in computes)
+    corroborated = all(p.get("confidence") == "confirmed-plus-dataset-supported"
+                       for p in provenances)
+
+    breakdown = [
+        "Attestation 40/40 - every served figure carries a passing receipt",
+        ("Verification 25/25 - all metric definitions human-verified" if human
+         else "Verification 10/25 - at least one metric is only "
+              "machine-verified (strongly-supported tier)"),
+        ("Freshness 25/25 - nothing past its stale_after date" if fresh
+         else "Freshness 0/25 - a figure came from a computation past its "
+              "stale_after date (served flagged)"),
+        ("Corroboration 10/10 - definitions also dataset-supported by the "
+         "extract profiler" if corroborated
+         else "Corroboration 0/10 - no dataset corroboration on every "
+              "definition used"),
+    ]
+    score = 40 + (25 if human else 10) + (25 if fresh else 0) + (10 if corroborated else 0)
+    level = "stale" if not fresh else ("high" if human else "medium")
+    return {"level": level, "score": score, "label": f"Layer: {score}%",
+            "breakdown": breakdown,
+            "reason": "Calculated from the layer's own signals - hover items "
+                      "show how each point was earned."}
+
+
 class AmbiguousTerm(LookupError):
     """A term matched more than one concept - clarify, don't guess."""
 

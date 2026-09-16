@@ -20,7 +20,15 @@ from types import SimpleNamespace
 import pytest
 
 from averio.agents.baseline import build_baseline
-from averio.agents.common import MAX_STEPS, ROW_CAP, AgentRunner, Tool, make_run_sql
+from averio.agents.common import (
+    CONFIDENCE_INSTRUCTION,
+    MAX_STEPS,
+    ROW_CAP,
+    AgentRunner,
+    Tool,
+    extract_confidence,
+    make_run_sql,
+)
 from averio.agents.governed import build_governed
 
 REPO = Path(__file__).resolve().parents[1]
@@ -135,6 +143,47 @@ def test_runner_accumulates_usage_and_cost():
     assert result["usage"] == {"requests": 2, "prompt_tokens": 250,
                                "completion_tokens": 50,
                                "cost_usd": pytest.approx(0.003)}
+
+
+# --- Self-reported confidence -------------------------------------------------
+
+def test_confidence_is_extracted_and_stripped_from_the_answer():
+    """The runner pulls the trailing 'Confidence: NN%' line into its own
+    field and removes it from the answer - the deterministic scorer must
+    never see the stray percentage (it would trip the abstention checks).
+    The verbatim final message stays in the transcript."""
+    runner, _ = _echo_runner([
+        _assistant(content="Net bookings were $135.3M.\n\n**Confidence: 85%**"),
+    ])
+    result = runner.ask("q")
+    assert result["confidence"] == 85
+    assert result["answer"] == "Net bookings were $135.3M."
+    assert "Confidence" in result["transcript"][-1]["content"]
+
+
+def test_confidence_absent_is_none_not_zero():
+    runner, _ = _echo_runner([_assistant(content="No idea, sorry.")])
+    result = runner.ask("q")
+    assert result["confidence"] is None
+
+
+def test_extract_confidence_never_mangles_mid_answer_mentions():
+    """A confidence line quoted mid-answer yields the value but leaves the
+    text intact; values clamp to 0-100."""
+    text = "Confidence: 90%\nBut the real answer is below.\nDone."
+    stripped, value = extract_confidence(text)
+    assert stripped == text and value == 90
+    assert extract_confidence("x\nConfidence: 250%")[1] == 100
+
+
+def test_confidence_instruction_is_identical_in_both_prompts(workspace):
+    """Symmetry guard: the instruction is appended by the runner itself,
+    so neither agent can carry a different version of it."""
+    db, _ = workspace
+    baseline = build_baseline(str(db))
+    governed = build_governed(str(db), bundle_dir=REPO / "bundle")
+    for agent in (baseline, governed):
+        assert agent.system_prompt.endswith(CONFIDENCE_INSTRUCTION)
 
 
 # --- run_sql: the shared data-access tool -------------------------------------

@@ -134,6 +134,16 @@ input::placeholder, textarea::placeholder { color: #a5a8b9; opacity: 1; }
 .status.pass { color: var(--gov); }
 .status.fail { color: var(--bad); }
 .status.unknown { color: var(--muted); }
+/* Self-reported model confidence. A warm low->high ramp tuned for the dark
+   surface: tan (low), amber (medium), mint (high - the theme's pass hue).
+   The dot + text label always travel together, so color never carries the
+   meaning alone. */
+.conf { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650; padding: 3px 9px; border-radius: 30px; border: 1px solid transparent; white-space: nowrap; }
+.conf::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.conf-low { color: #d9b391; background: #2c2118; border-color: #55412e; }
+.conf-medium { color: #f0b57f; background: #33250f; border-color: #614a26; }
+.conf-high { color: #88d6bf; background: #142923; border-color: #2c5347; }
+.conf-none { color: var(--muted); background: var(--soft); border-color: #303139; }
 .question-detail { padding: 0 20px 23px; background: #13171e; }
 .rule-note { background: #1b252e; padding: 12px 15px; border-radius: 8px; font-size: 12px; margin: 0 0 16px; color: #c0cdd9; }
 .rule-note strong { font-weight: 650; }
@@ -417,7 +427,10 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
         <dt>Fiscal year (FY)</dt><dd>Averio's business year runs October–September and is named for its ending year. FY2025 starts on 1 October 2024.</dd>
         <dt>Calculation receipt</dt><dd>A record linking a result to the approved computation that produced it. Attestation checks that computation; it does not certify the entire AI answer.</dd>
         <dt>Passed / incorrect</dt><dd>Whether an answer passed this experiment's automated scoring checks. A pass is not a guarantee that every statement is correct.</dd>
+        <dt>Model confidence</dt><dd>The model's own 0–100 estimate of its answer, stated at the end of every reply. Low shows tan, medium amber, high mint. It is self-reported — compare it with the automated check: a highly confident incorrect answer is exactly what the semantic layer exists to prevent.</dd>
+        <dt>Layer confidence</dt><dd>Shown only on governed answers, and calculated rather than self-reported: a 0–100 score from a fixed points rubric over the layer's own signals — attestation receipts (40), human- vs machine-verified definitions (25/10), freshness (25), and dataset corroboration (10). Hover the chip to see exactly how the points were earned. “Policy-based” means the reply served no computed figure (a refusal or clarification) — there is nothing to score, which describes the kind of evidence, not a defect.</dd>
         <dt>Abstention</dt><dd>Saying a request cannot be answered under the available business rules, instead of inventing an unsupported definition.</dd>
+        <dt>Caveat</dt><dd>A required qualification the layer attaches to certain figures so they are not misread. Example: positive booking movements may be reported, but only with the warning that they include corrections and reclassifications and are not an approved “gross new bookings” metric. When a question calls for such a figure, the scoring checks that the caveat was actually stated (“caveat attached”) — a right number served without its caveat still counts as incorrect.</dd>
       </dl></details>
     </section>
 
@@ -530,6 +543,29 @@ function renderOverview() {
   $('foot').textContent = 'Recorded run: ' + dateLabel + ' · Model: ' + (meta.model || 'not recorded') + ' · ' + QUESTIONS.length + ' questions. Synthetic data; all people and organization names are fictional. Recorded results are separate from new live answers.';
   $('results-overview').hidden = false;
 }
+// The model's own 0-100 estimate of its answer, shown as a labeled chip.
+// Self-reported and separate from the pass/incorrect check - the two side
+// by side are the point (a confident wrong answer is the story).
+function confidenceChip(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '<span class="conf conf-none" title="The model did not state a confidence for this answer">Model: not stated</span>';
+  const v = Math.max(0, Math.min(100, Math.round(value)));
+  const level = v >= 80 ? ['high', 'High'] : v >= 50 ? ['medium', 'Medium'] : ['low', 'Low'];
+  return '<span class="conf conf-' + level[0] + '" title="Self-reported by the model; not a guarantee of correctness">Model: ' + level[1] + ' · ' + v + '%</span>';
+}
+// The governed side's calculated counterpart: what the layer's own signals
+// prove (attestation receipts, trust tiers, staleness) - derived by the
+// server from the actual transcript, never from the answer's wording.
+function layerChip(lc) {
+  if (!lc || !lc.level) return '';
+  if (typeof lc.score === 'number' && Number.isFinite(lc.score)) {
+    const v = Math.max(0, Math.min(100, Math.round(lc.score)));
+    const cls = v >= 80 ? 'conf-high' : v >= 50 ? 'conf-medium' : 'conf-low';
+    // The hover IS the calculation: the rubric's itemized point breakdown.
+    const tip = 'Calculated from the layer’s signals:\n' + (Array.isArray(lc.breakdown) ? lc.breakdown.join('\n') : (lc.reason || ''));
+    return '<span class="conf ' + cls + '" title="' + esc(tip) + '">Layer: ' + v + '%</span>';
+  }
+  return '<span class="conf conf-none" title="' + esc(lc.reason || 'No computed figure was served') + '">' + esc(lc.label || 'Layer: policy-based') + '</span>';
+}
 function status(ok, prefix = '') {
   if (typeof ok !== 'boolean') return '<span class="status unknown">' + prefix + 'Not recorded</span>';
   return '<span class="status ' + (ok ? 'pass' : 'fail') + '">' + prefix + (ok ? '✓ Passed' : '✗ Incorrect') + '</span>';
@@ -544,7 +580,12 @@ function renderAnswer(record, agent) {
   const leaked = record.score?.leaked_names?.length || 0;
   // Real spend, when the run recorded it (runs before cost tracking have none).
   const spend = typeof record.usage?.cost_usd === 'number' && record.usage.cost_usd > 0 ? ' · $' + record.usage.cost_usd.toFixed(4) + ' API credits' : '';
-  return '<article class="answer-pane ' + agent + '-pane"><div class="answer-heading"><h3 class="agent-name ' + agent + '">' + name + '</h3>' + status(record.score?.correct) + '</div><div class="answer">' + markdown(record.answer) + '</div><details class="evidence"><summary>Scoring &amp; tool trail · ' + calls.length + ' tool calls</summary>' + (checks ? '<ul class="checks">' + checks + '</ul>' : '<p>No individual checks were recorded.</p>') + (leaked ? '<p class="status fail">✗ ' + leaked + ' restricted name(s) exposed</p>' : '') + '<p>' + esc(record.steps ?? 'Unknown') + ' agent steps' + spend + '. Tool calls appear in execution order.</p><div class="trail">' + (calls.map(e => '<code>' + esc(e.tool) + '</code>').join('<span aria-hidden="true">→</span>') || 'No tool calls recorded.') + '</div>' + (hash ? '<p style="margin-top:12px">Verified computation receipt<br><code>' + esc(hash) + '</code></p>' : '') + '</details></article>';
+  // Model chip only when the run recorded a confidence (older runs have
+  // none); the governed layer chip is server-derived from the transcript,
+  // so it exists for every recorded governed answer.
+  const conf = typeof record.confidence === 'number' ? confidenceChip(record.confidence) : '';
+  const layer = agent === 'governed' ? layerChip(record.layer_confidence) : '';
+  return '<article class="answer-pane ' + agent + '-pane"><div class="answer-heading"><h3 class="agent-name ' + agent + '">' + name + '</h3>' + conf + layer + status(record.score?.correct) + '</div><div class="answer">' + markdown(record.answer) + '</div><details class="evidence"><summary>Scoring &amp; tool trail · ' + calls.length + ' tool calls</summary>' + (checks ? '<ul class="checks">' + checks + '</ul>' : '<p>No individual checks were recorded.</p>') + (leaked ? '<p class="status fail">✗ ' + leaked + ' restricted name(s) exposed</p>' : '') + '<p>' + esc(record.steps ?? 'Unknown') + ' agent steps' + spend + '. Tool calls appear in execution order.</p><div class="trail">' + (calls.map(e => '<code>' + esc(e.tool) + '</code>').join('<span aria-hidden="true">→</span>') || 'No tool calls recorded.') + '</div>' + (hash ? '<p style="margin-top:12px">Verified computation receipt<br><code>' + esc(hash) + '</code></p>' : '') + '</details></article>';
 }
 function renderQuestion(q) {
   return '<details class="question" id="question-' + esc(q.id) + '"><summary><span class="question-title">' + esc(q.question) + '<span class="question-meta">' + esc(q.id) + ' · ' + q.traps.map(t => esc(ruleName(t))).join(' · ') + '</span></span><span class="question-scores">' + status(q.baseline?.score?.correct, 'Baseline: ') + status(q.governed?.score?.correct, 'Governed: ') + '</span></summary><div class="question-detail"><div class="rule-note"><strong>What to look for:</strong> ' + q.traps.map(t => esc((RULES[t] || ['', t])[1])).join(' ') + '</div><div class="duel">' + renderAnswer(q.baseline, 'baseline') + renderAnswer(q.governed, 'governed') + '</div></div></details>';
@@ -694,8 +735,12 @@ async function ask(event) {
           const heading = $('pane-' + agent).querySelector('.answer-heading');
           if (heading && !heading.querySelector('.status')) {
             const badge = document.createElement('span');
-            badge.innerHTML = verdict ? status(verdict.correct) : '<span class="status unknown">Not scored</span>';
-            heading.appendChild(badge.firstElementChild);
+            // Model self-report first (always - "not stated" is informative
+            // here, since the model was instructed to state one), then the
+            // governed side's calculated layer chip, then the deterministic
+            // verdict when an answer key exists.
+            badge.innerHTML = confidenceChip(entry.confidence) + (agent === 'governed' ? layerChip(entry.layer_confidence) : '') + (verdict ? status(verdict.correct) : '<span class="status unknown">Not scored</span>');
+            while (badge.firstElementChild) heading.appendChild(badge.firstElementChild);
           }
           $('answer-' + agent).innerHTML = markdown(entry.answer);
         } else {

@@ -413,6 +413,10 @@ def main(argv: list[str] | None = None) -> None:
                 "question": question["question"], "answer": run["answer"],
                 "steps": run["steps"], "score": score,
                 "usage": run.get("usage"),  # tokens + USD cost per question
+                # The model's self-reported 0-100 confidence, extracted and
+                # stripped from the answer by the runner (so scoring above
+                # never saw it). Stored for display and calibration study.
+                "confidence": run.get("confidence"),
                 "transcript": run["transcript"],
             })
             # Incremental save: an interrupted run keeps everything done

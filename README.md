@@ -7,8 +7,9 @@ governed knowledge layer, one doesn't — and every answer is scored determinist
 
 | | Baseline (no layer) | Governed (with layer) |
 |---|---|---|
-| **Correct answers** | 17/36 (47%) | **34/36 (94%)** |
+| **Correct answers** | 17/36 (47%) | **35/36 (97%)** |
 | **Restricted-name leaks** | 5 | **0** |
+| **Average cost per question** | $0.0083 | **$0.0053** |
 | Model, data, tools, temperature | identical | identical |
 
 The only difference between the two agents is the presence of the layer — so the
@@ -98,7 +99,7 @@ byte-identical across runs. The generator *hard-asserts* its own experimental
 validity: every trap population must be non-empty and every naive variant must move
 its metric by ≥1%, or generation fails loudly.
 
-The test suite (53 tests, offline, ~3s) guards the invariants that make the numbers
+The test suite (59 tests, offline, ~3s) guards the invariants that make the numbers
 meaningful — bundle SQL ≡ harness SQL, the attester's independent fiscal calendar ≡
 the executor's, the baseline prompt contains no governance vocabulary, and the
 scoring tolerance stays below the smallest trap separation.

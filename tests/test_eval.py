@@ -25,6 +25,7 @@ import pytest
 from averio.evaluate import (
     RELATIVE_TOLERANCE,
     ScoringContext,
+    _mentions_any,
     extract_numbers,
     load_questions,
     score_answer,
@@ -114,6 +115,17 @@ def test_extract_numbers_handles_suffixes_and_signs():
 
 
 # --- Scorer behavior ----------------------------------------------------------
+
+def test_phrase_checks_ignore_markdown_emphasis():
+    """Models bold the operative word; the phrase check must see through
+    the asterisks (run 3, FLAG-01: "must **not** be read as active" failed
+    a "not be read as" check on both agents). Underscores are not
+    stripped - they belong to column names such as BOOKED_FLAG."""
+    assert _mentions_any("the flag must **not** be read as active", ["not be read as"])
+    assert _mentions_any("*Still active?* **No.**", ["active? no"])
+    assert _mentions_any("BOOKED_FLAG stays 'Y'", ["booked_flag stays"])
+    assert not _mentions_any("the flag is a reliable signal", ["not a reliable"])
+
 
 def test_value_scoring_accepts_right_figure_rejects_trap(ctx, workspace):
     _, truth = workspace

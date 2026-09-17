@@ -147,7 +147,13 @@ def _money_scale(numbers: list[dict]) -> list[dict]:
 
 
 def _mentions_any(text: str, phrases) -> bool:
-    lowered = text.lower()
+    # Markdown emphasis markers are dropped before matching: models bold
+    # the operative word ("must **not** be read as active"), and a phrase
+    # check that fails on the asterisks would be grading typography, not
+    # behavior. Run 3's FLAG-01 miss was exactly that (both agents). Only
+    # "*" is stripped - underscores are part of column names in this
+    # domain (BOOKED_FLAG) and must survive.
+    lowered = text.replace("*", "").lower()
     return any(p.lower() in lowered for p in phrases)
 
 

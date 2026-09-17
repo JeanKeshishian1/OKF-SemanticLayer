@@ -53,7 +53,7 @@
       "expect": {
         "sql": "SELECT COUNT(*) FROM bookings WHERE \"Booking Type\" = 'CANCEL' AND \"BOOKED_FLAG\" = 'Y'"
       },
-      "must_mention_any": ["does not", "doesn't", "not mean", "not indicate", "not a reliable", "cannot rely", "can't rely", "stays"]
+      "must_mention_any": ["does not", "doesn't", "not mean", "not indicate", "not a reliable", "cannot rely", "can't rely", "stays", "not be read as", "not an activity", "active? no"]
     },
     {
       "id": "B2-01",

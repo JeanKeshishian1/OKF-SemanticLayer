@@ -165,5 +165,5 @@ trust model the project exists to demonstrate.
 
 ---
 
-**Author:** Jean Keshishian — capstone project on agent-facing enterprise semantic
+**Author:** Jean Garod Keshishian — capstone project on agent-facing enterprise semantic
 layers, built on the Open Knowledge Format.

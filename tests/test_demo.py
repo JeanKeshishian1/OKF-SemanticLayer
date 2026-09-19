@@ -189,9 +189,13 @@ def test_enduser_page_serves_only_its_regions(monkeypatch):
     monkeypatch.setenv("AVERIO_VARIANT", "enduser")
     page = client.get("/").text
     assert "Averio Assistant" in page
+    for own in ('id="composer"', 'id="chat-sidebar"', 'id="sidebar-resizer"', "/api/chat"):
+        assert own in page, own
     for demo_only in ('id="ask-form"', "OKF Explorer", "trapchart", "/api/results",
-                      "/api/ask", "Averio Governed Semantic Layer", "id=\"main\""):
+                      "/api/ask", "Averio Governed Semantic Layer"):
         assert demo_only not in page, demo_only
+    monkeypatch.setenv("AVERIO_VARIANT", "demo")
+    assert 'id="composer"' not in client.get("/").text  # and the demo has none of the chat
     assert page.count("<script") == page.count("</script>")
     assert page.count("<style") == page.count("</style>")
     assert "<!-- variant" not in page and "<!-- /variant" not in page

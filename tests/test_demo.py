@@ -4,11 +4,12 @@ The live paths are exercised manually against the real model (they spend
 API budget); what is pinned here is everything that can break silently
 before a presentation or a deployment: the page serves, the variant flag
 gates the routes and the page regions, the access code turns away every
-credit-spending request BEFORE an agent is built, the /api/ask wire
-contract holds, the recorded-results and curated endpoints return coherent
-data, and the AgentRunner event hook streams exactly the transcript it
-returns - because the live demo's honesty depends on the stream being the
-transcript, not a reenactment of it.
+credit-spending request BEFORE an agent is built, both live routes keep
+their wire contract (the demo's exact event shapes, the chat's history
+replay, titles and their fallback, keepalive frames), the recorded-results
+and curated endpoints return coherent data, and the AgentRunner event hook
+streams exactly the transcript it returns - because the live demo's
+honesty depends on the stream being the transcript, not a reenactment.
 
 The model is replaced by ``FakeChat`` - a scripted, thread-safe stand-in
 behind echo-tool runners - so no DuckDB file and no key are needed.
@@ -19,6 +20,7 @@ from __future__ import annotations
 import copy
 import json
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -63,10 +65,11 @@ def _script(answer="The answer\n\nConfidence: 80%"):
 
 class FakeChat:
     """Scripted stand-in for the OpenAI client, safe to call from the
-    threads the server starts per agent. Tool-bearing requests play the
-    agent script; tool-free ones (a title request) return ``title``.
-    Requests are deep-copied because the runner keeps appending to the
-    live message list after each call."""
+    threads the server starts per producer. Tool-bearing requests play the
+    agent script; tool-free ones (the title request) return ``title``, or
+    raise when it is None - the model failing to name a chat. Requests are
+    deep-copied because the runner keeps appending to the live message
+    list after each call."""
 
     def __init__(self, script=None, title="Scripted title"):
         self.script = list(_script() if script is None else script)
@@ -80,25 +83,33 @@ class FakeChat:
             self.requests.append(copy.deepcopy(kwargs))
             if "tools" in kwargs:
                 message = self.script.pop(0)
+            elif self.title is None:
+                raise RuntimeError("title model unavailable")
             else:
                 message = SimpleNamespace(content=self.title, tool_calls=None)
         return SimpleNamespace(choices=[SimpleNamespace(message=message)])
 
 
-def fake_agents(monkeypatch) -> dict[str, FakeChat]:
+def fake_agents(monkeypatch, tool=ECHO) -> dict[str, FakeChat]:
     """Swap the real factories - which open the gitignored DuckDB and need
-    a key - for echo runners over scripted clients. Returns each agent's
-    fake so a test can inspect exactly what the server sent it."""
+    a key - for echo runners over scripted clients. Returns every fake by
+    role ("client" is what make_client hands out, i.e. where the title
+    request lands; "baseline"/"governed" are the agents actually built) so
+    a test can inspect exactly what the server sent, and to whom."""
     fakes: dict[str, FakeChat] = {}
 
     def factory(name):
         def build(*_args, **_kwargs):
             fakes[name] = FakeChat()
-            return AgentRunner(name=name, system_prompt="s", tools=[ECHO],
+            return AgentRunner(name=name, system_prompt="s", tools=[tool],
                                client=fakes[name], model="fake")
         return build
 
-    monkeypatch.setattr(demo, "make_client", lambda: SimpleNamespace())
+    def make_client():
+        fakes["client"] = FakeChat()
+        return fakes["client"]
+
+    monkeypatch.setattr(demo, "make_client", make_client)
     monkeypatch.setattr(demo, "build_baseline", factory("baseline"))
     monkeypatch.setattr(demo, "build_governed", factory("governed"))
     return fakes
@@ -114,15 +125,26 @@ def forbid_agents(monkeypatch) -> None:
     monkeypatch.setattr(demo, "build_governed", boom)
 
 
-def read_events(response) -> list[dict]:
-    """Drain an SSE response to its end and return its JSON events. Always
-    consumed fully, so the server's worker threads are never left blocked
-    behind a half-read stream."""
-    events = []
+def read_stream(response) -> tuple[list[dict], list[str]]:
+    """Drain an SSE response to its end: (JSON events, other non-empty
+    lines such as keepalive comments). Always consumed fully, so the
+    server's worker threads are never left blocked behind a half-read
+    stream."""
+    events, other = [], []
     for line in response.iter_lines():
         if line.startswith("data: "):
             events.append(json.loads(line[len("data: "):]))
-    return events
+        elif line.strip():
+            other.append(line)
+    return events, other
+
+
+def read_events(response) -> list[dict]:
+    return read_stream(response)[0]
+
+
+def _chat(body: dict):
+    return client.post("/api/chat", json=body)
 
 
 # --- Variant flag -----------------------------------------------------------------
@@ -163,6 +185,9 @@ def test_routes_are_gated_by_variant(monkeypatch):
     forbid_agents(monkeypatch)
     assert client.get("/api/results").status_code == 200
     assert client.get("/api/config").json()["variant"] == "demo"
+    # The chat route does not exist on the demo face: the gate answers
+    # before the body is even validated (an empty body would be a 422).
+    assert _chat({}).status_code == 404
 
     # The end-user face: no recorded story, no duel - those routes do not
     # exist here, and the gate fires before any agent could be built.
@@ -172,6 +197,7 @@ def test_routes_are_gated_by_variant(monkeypatch):
     assert client.get("/api/ask", params={"q": "x"}).status_code == 404
     assert client.get("/api/curated").status_code == 200
     assert client.get("/api/config").json()["variant"] == "enduser"
+    assert _chat({}).status_code == 422  # reachable; validation, not the gate
 
     # A typo is not a third face: per request it behaves as the demo
     # (and main() refuses to start on it - see below).
@@ -189,7 +215,7 @@ def test_config_reports_variant_and_access(monkeypatch):
     assert client.get("/api/config").json()["access_required"] is True
 
 
-def test_access_code_guards_the_live_endpoint(monkeypatch):
+def test_access_code_guards_every_live_endpoint(monkeypatch):
     monkeypatch.setenv("AVERIO_ACCESS_CODE", "sesame")
     forbid_agents(monkeypatch)
     assert client.get("/api/ask", params={"q": "x"}).status_code == 401
@@ -199,6 +225,13 @@ def test_access_code_guards_the_live_endpoint(monkeypatch):
     assert client.get("/").status_code == 200
     assert client.get("/api/curated").status_code == 200
     assert client.get("/api/results").status_code == 200
+    # The chat is guarded the same way on its own face.
+    monkeypatch.setenv("AVERIO_VARIANT", "enduser")
+    turn = {"messages": [{"role": "user", "content": "q"}]}
+    assert _chat(turn).status_code == 401
+    assert client.post("/api/chat", json=turn,
+                       headers={"X-Averio-Access": "wrong"}).status_code == 401
+    monkeypatch.delenv("AVERIO_VARIANT")
     # The right code lets the stream through, and it runs to completion.
     fake_agents(monkeypatch)
     with client.stream("GET", "/api/ask", params={"q": "x"},
@@ -209,35 +242,16 @@ def test_access_code_guards_the_live_endpoint(monkeypatch):
     assert sum(e["type"] == "final" for e in events) == 2
 
 
-def test_ask_stream_keeps_its_wire_contract(monkeypatch):
-    """The demo page is written against these exact event shapes; pin them
-    so later server work (the end-user chat will share the streaming
-    machinery) cannot move them unnoticed."""
-    fakes = fake_agents(monkeypatch)
-    with client.stream("GET", "/api/ask", params={"q": "x" * 900}) as resp:
-        assert resp.status_code == 200
-        assert resp.headers["content-type"].startswith("text/event-stream")
-        events = read_events(resp)
-    assert events[-1] == {"type": "done"}
-    calls = [e for e in events if e["type"] == "tool_call"]
-    finals = {e["agent"]: e for e in events if e["type"] == "final"}
-    assert {c["agent"] for c in calls} == {"baseline", "governed"}
-    assert all(c["tool"] == "echo" and
-               set(c) == {"agent", "type", "step", "tool", "arguments"} for c in calls)
-    assert set(finals) == {"baseline", "governed"}
-    for final in finals.values():
-        assert set(final) == {"agent", "type", "answer", "steps", "usage",
-                              "confidence", "layer_confidence", "verdict"}
-        assert final["answer"] == "The answer"  # the confidence line is stripped
-        assert final["confidence"] == 80
-        assert final["verdict"] is None  # free text: honestly unscored
-    assert finals["baseline"]["layer_confidence"] is None
-    assert finals["governed"]["layer_confidence"]["level"] == "policy"
-    # Both agents received the question cut to the published cap.
-    for fake in fakes.values():
-        sent = fake.requests[0]["messages"][-1]
-        assert sent["role"] == "user"
-        assert len(sent["content"]) == demo.MAX_QUESTION_CHARS
+def test_missing_key_is_a_readable_503(monkeypatch):
+    """No key must surface as a response the page can display, not as a
+    stream that dies after the headers."""
+    def no_key():
+        raise RuntimeError("OPENROUTER_API_KEY is not set.")
+    monkeypatch.setattr(demo, "make_client", no_key)
+    resp = client.get("/api/ask", params={"q": "x"})
+    assert resp.status_code == 503 and "OPENROUTER_API_KEY" in resp.json()["detail"]
+    monkeypatch.setenv("AVERIO_VARIANT", "enduser")
+    assert _chat({"messages": [{"role": "user", "content": "q"}]}).status_code == 503
 
 
 def test_main_serves_from_the_environment(monkeypatch, capsys):
@@ -267,6 +281,186 @@ def test_main_refuses_an_unknown_variant(monkeypatch):
     monkeypatch.setenv("AVERIO_VARIANT", "end-user")
     with pytest.raises(SystemExit):
         demo.main()
+
+
+# --- The demo's live stream ---------------------------------------------------
+
+def test_ask_stream_keeps_its_wire_contract(monkeypatch):
+    """The demo page is written against these exact event shapes; pin them
+    so server work shared with the chat cannot move them unnoticed."""
+    fakes = fake_agents(monkeypatch)
+    with client.stream("GET", "/api/ask", params={"q": "x" * 900}) as resp:
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+        # What a proxied deploy needs to pass frames through as they come.
+        assert resp.headers["cache-control"] == "no-cache"
+        assert resp.headers["x-accel-buffering"] == "no"
+        events = read_events(resp)
+    assert events[-1] == {"type": "done"}
+    calls = [e for e in events if e["type"] == "tool_call"]
+    finals = {e["agent"]: e for e in events if e["type"] == "final"}
+    assert {c["agent"] for c in calls} == {"baseline", "governed"}
+    assert all(c["tool"] == "echo" and
+               set(c) == {"agent", "type", "step", "tool", "arguments"} for c in calls)
+    assert set(finals) == {"baseline", "governed"}
+    for final in finals.values():
+        assert set(final) == {"agent", "type", "answer", "steps", "usage",
+                              "confidence", "layer_confidence", "verdict"}
+        assert final["answer"] == "The answer"  # the confidence line is stripped
+        assert final["confidence"] == 80
+        assert final["verdict"] is None  # free text: honestly unscored
+    assert finals["baseline"]["layer_confidence"] is None
+    assert finals["governed"]["layer_confidence"]["level"] == "policy"
+    # Both agents received the question cut to the published cap, with no
+    # history: the demo's request is the eval's - exactly [system, question].
+    for name in ("baseline", "governed"):
+        sent = fakes[name].requests[0]["messages"]
+        assert [m["role"] for m in sent] == ["system", "user"]
+        assert len(sent[-1]["content"]) == demo.MAX_QUESTION_CHARS
+    assert not fakes["client"].requests  # no title on the demo
+
+
+def test_keepalive_frame_is_emitted_when_idle(monkeypatch):
+    """A slow tool must not leave the connection silent: comment frames go
+    out while nothing else happens, and the page ignores them."""
+    monkeypatch.setattr(demo, "KEEPALIVE_SECONDS", 0.05)
+    slow_echo = Tool(name="echo", description="echo", parameters=ECHO.parameters,
+                     fn=lambda text: (time.sleep(0.3), {"echoed": text})[1])
+    fake_agents(monkeypatch, tool=slow_echo)
+    with client.stream("GET", "/api/ask", params={"q": "x"}) as resp:
+        events, other = read_stream(resp)
+    assert events[-1] == {"type": "done"}
+    assert any(line.startswith(": ping") for line in other)
+
+
+# --- The end-user chat ------------------------------------------------------------
+
+def test_chat_streams_tool_calls_final_and_title(monkeypatch):
+    monkeypatch.setenv("AVERIO_VARIANT", "enduser")
+    fakes = fake_agents(monkeypatch)
+    body = {"agent": "governed", "want_title": True,
+            "messages": [{"role": "user", "content": "q1"},
+                         {"role": "assistant", "content": "a1", "confidence": 70},
+                         {"role": "user", "content": "q2"}]}
+    with client.stream("POST", "/api/chat", json=body) as resp:
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+        assert resp.headers["cache-control"] == "no-cache"
+        assert resp.headers["x-accel-buffering"] == "no"
+        events = read_events(resp)
+    types = [e["type"] for e in events]
+    assert types[-1] == "done"
+    assert types.count("final") == 1 and types.count("title") == 1
+    call = next(e for e in events if e["type"] == "tool_call")
+    assert (call["agent"], call["tool"]) == ("governed", "echo")
+    final = next(e for e in events if e["type"] == "final")
+    assert final["answer"] == "The answer" and final["confidence"] == 80
+    assert final["layer_confidence"]["level"] == "policy"
+    assert "verdict" not in final  # no answer key for a free conversation
+    assert next(e for e in events if e["type"] == "title")["title"] == "Scripted title"
+    # Only the requested agent was built, and it saw the conversation with
+    # the confidence line restored on its earlier answer.
+    assert set(fakes) == {"client", "governed"}
+    sent = fakes["governed"].requests[0]["messages"]
+    assert sent[0]["role"] == "system"
+    assert [(m["role"], m["content"]) for m in sent[1:]] == [
+        ("user", "q1"), ("assistant", "a1\n\nConfidence: 70%"), ("user", "q2")]
+    # The title came from one tool-free, deterministic, hard-capped call.
+    (title_call,) = fakes["client"].requests
+    assert "tools" not in title_call
+    assert title_call["temperature"] == 0
+    assert title_call["max_tokens"] == demo.TITLE_MAX_TOKENS
+    assert title_call["messages"][-1]["content"] == "q2"
+
+
+def test_chat_title_falls_back_when_the_model_fails(monkeypatch):
+    monkeypatch.setenv("AVERIO_VARIANT", "enduser")
+    fakes = fake_agents(monkeypatch)
+    # Arm the failure through the client the server will build.
+    real_make_client = demo.make_client
+
+    def failing_client():
+        fake = real_make_client()
+        fake.title = None
+        return fake
+    monkeypatch.setattr(demo, "make_client", failing_client)
+    question = "What were net bookings in USD for fiscal year 2026 through period 10?"
+    body = {"want_title": True, "messages": [{"role": "user", "content": question}]}
+    with client.stream("POST", "/api/chat", json=body) as resp:
+        events = read_events(resp)
+    title = next(e for e in events if e["type"] == "title")["title"]
+    assert title == demo.fallback_title(question)
+    assert title.endswith("…") and len(title) <= demo.TITLE_FALLBACK_CHARS + 1
+    assert any(e["type"] == "final" for e in events)  # the answer still arrived
+    assert fakes["client"].requests  # the model was asked before falling back
+
+
+def test_title_helpers_are_pure_and_bounded():
+    assert demo.sanitize_title('"Net Bookings FY2026."') == "Net Bookings FY2026"
+    assert demo.sanitize_title("Title: **Net bookings, FY2026**\nSecond line") == \
+        "Net bookings, FY2026"
+    assert demo.sanitize_title("") == "" and demo.sanitize_title(None) == ""
+    assert demo.sanitize_title("   \n  ") == ""
+    cut = demo.sanitize_title(" ".join(["word"] * 30))
+    assert len(cut) <= demo.TITLE_MAX_CHARS and cut.endswith("word")
+    assert demo.fallback_title("Short question?") == "Short question?"
+    fb = demo.fallback_title("A " * 100)
+    assert fb.endswith("…") and " …" not in fb  # word boundary, no dangling space
+    assert len(fb) <= demo.TITLE_FALLBACK_CHARS + 1
+
+
+def test_chat_validates_and_caps_input(monkeypatch):
+    monkeypatch.setenv("AVERIO_VARIANT", "enduser")
+    fakes = fake_agents(monkeypatch)
+    assert _chat({"messages": []}).status_code == 422
+    assert _chat({"messages": [{"role": "tool", "content": "x"}]}).status_code == 422
+    assert _chat({"agent": "other",
+                  "messages": [{"role": "user", "content": "q"}]}).status_code == 422
+    assert _chat({"messages": [{"role": "user", "content": "q"},
+                               {"role": "assistant", "content": "a"}]}).status_code == 400
+    assert _chat({"messages": [{"role": "user", "content": "   "}]}).status_code == 400
+    assert not fakes  # none of those built an agent or a client
+    # A long question reaches the runner cut to the cap; thirty earlier
+    # turns reach it as the newest twenty, opening on a user turn.
+    turns = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"t{i}"}
+             for i in range(30)]
+    body = {"agent": "baseline",
+            "messages": turns + [{"role": "user", "content": "x" * 900}]}
+    with client.stream("POST", "/api/chat", json=body) as resp:
+        assert resp.status_code == 200
+        read_events(resp)
+    sent = fakes["baseline"].requests[0]["messages"]
+    assert len(sent) == 1 + demo.HISTORY_MAX_TURNS + 1
+    assert sent[1] == {"role": "user", "content": "t10"}
+    assert len(sent[-1]["content"]) == demo.MAX_QUESTION_CHARS
+    assert set(fakes) == {"client", "baseline"}  # governed never built
+    assert not fakes["client"].requests  # no title unless asked
+
+
+def test_trim_history_bounds_and_normalises_turns():
+    turn = demo.ChatTurn
+    big = "x" * (demo.MAX_ASSISTANT_TURN_CHARS + 500)
+    turns = []
+    for i in range(8):
+        turns += [turn(role="user", content=f"q{i}"),
+                  turn(role="assistant", content=big, confidence=55)]
+    history = demo.trim_history(turns)
+    assert 0 < len(history) < len(turns)
+    assert history[0]["role"] == "user"
+    assert sum(len(t["content"]) for t in history) <= demo.HISTORY_MAX_CHARS
+    line = "\n\nConfidence: 55%"
+    for t in history:
+        if t["role"] == "assistant":
+            assert t["content"].endswith(line)  # restored, never eaten by the cap
+            assert len(t["content"]) <= demo.MAX_ASSISTANT_TURN_CHARS + len(line)
+    # Without a stored confidence nothing is invented; whitespace is trimmed.
+    assert demo.trim_history([turn(role="user", content=" q "),
+                              turn(role="assistant", content="a")]) == [
+        {"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}]
+    # An orphaned opening reply is dropped.
+    assert demo.trim_history([turn(role="assistant", content="a"),
+                              turn(role="user", content="q")]) == [
+        {"role": "user", "content": "q"}]
 
 
 # --- Recorded story and hooks -------------------------------------------------

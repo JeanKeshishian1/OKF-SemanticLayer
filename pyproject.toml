@@ -33,6 +33,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+# The page ships inside the package: a non-editable install (a container
+# image serving either variant) would otherwise have a server and no page.
+averio = ["demo_page.html"]
+
 [tool.ruff]
 # Wider than the 88 default: the project style mandates heavy explanatory
 # comments, and cramming those into 88 columns hurts more than it helps.

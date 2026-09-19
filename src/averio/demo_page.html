@@ -3,8 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- One page, two faces. The server keeps the regions marked for the face it
+     serves (AVERIO_VARIANT) and strips the other's before sending, so a
+     browser never receives the other face's markup, styles or scripts.
+     Markers sit only between elements and never nest; see render_page in
+     demo.py for the rules. -->
+<!-- variant:demo -->
 <meta name="description" content="Explore how shared business definitions change AI answers. Compare recorded examples and try the Averio governed semantic layer.">
 <title>OKF Explorer · Averio Semantic Layer</title>
+<!-- /variant -->
+<!-- variant:enduser -->
+<meta name="description" content="Ask questions about Averio bookings and get answers grounded in the governed semantic layer.">
+<title>Averio Assistant · Governed Semantic Layer</title>
+<!-- /variant -->
 <style>
 :root {
   color-scheme: dark;
@@ -188,6 +199,8 @@ input::placeholder, textarea::placeholder { color: #a5a8b9; opacity: 1; }
 .state-icon { display: grid; place-items: center; background: var(--surface); width: 27px; height: 27px; flex-shrink: 0; border-radius: 8px; color: var(--muted); font-weight: 700; }
 .live-state strong { display: block; font-size: 13px; }
 .live-state p { color: var(--muted); font-size: 12px; margin: 3px 0 0; }
+.access-row { margin: 0 0 16px; }
+.access-row input { max-width: 340px; }
 .setup { margin: 0 0 21px; font-size: 12px; }
 .setup summary { font-weight: 650; color: var(--gov); }
 .setup ol { color: var(--muted); padding-left: 22px; }
@@ -333,6 +346,7 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
+<!-- variant:demo -->
 <aside class="sidebar" aria-label="Project navigation">
   <a class="brand" href="#live"><span class="brand-mark" aria-hidden="true">◈</span><span>OKF Explorer<small>AVERIO · SEMANTIC LAYER</small></span></a>
   <div class="nav-label">Explore the project</div>
@@ -352,6 +366,7 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
       <div class="card live-card">
         <div class="mode-bar"><span class="pill" id="live-badge">Live · checking…</span></div>
         <div class="live-state" id="live-state" role="status"><span class="state-icon" aria-hidden="true">i</span><div><strong id="live-state-title">Checking live availability…</strong><p id="live-state-detail">Live questions run both agents against the same database.</p></div></div>
+        <div class="access-row" id="access-row" hidden><label for="access-code">Access code</label><input id="access-code" type="password" autocomplete="off" placeholder="This server requires a code for live questions"></div>
         <details class="setup" id="setup" hidden><summary>How to enable live questions</summary><ol id="setup-steps"></ol><p>See <code>README.md</code> in the project for complete setup instructions.</p><button class="btn" id="refresh-config" type="button">Check setup again</button></details>
         <form id="ask-form" class="live-form">
           <div id="live-controls"><label for="curated">Choose a sample question <span style="font-weight:400">(optional)</span></label><select id="curated" disabled><option value="">Choose a question to get started…</option></select>
@@ -438,10 +453,15 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
     <footer class="footer"><div><strong>Averio Governed Semantic Layer</strong><p id="foot">An OKF experiment using synthetic bookings data. All people and organization names in the dataset are fictional.</p></div><a href="#live">Back to comparison ↑</a></footer>
   </main>
 </div>
+<!-- /variant -->
 <script>
 'use strict';
-// This page is intentionally dependency-free. Treat all result/model text as
-// untrusted text: escape before applying the small, local Markdown renderer.
+// Shared by both faces of the page (see the markers above). Only helpers
+// with no side effects and no reference to either face's elements may live
+// here: this script also runs on the end-user page, where none of the
+// demo's ids exist, and a top-level reference to one would abort it. The
+// page is intentionally dependency-free. Treat all result/model text as
+// untrusted: escape before applying the small, local Markdown renderer.
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const inline = value => esc(value).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -467,6 +487,85 @@ function markdown(value) {
   }
   return out.join('');
 }
+async function getJSON(url) {
+  const response = await fetch(url, {headers: {'Accept': 'application/json'}});
+  let body;
+  try { body = await response.json(); } catch { throw new Error('The server returned an unreadable response.'); }
+  if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : body.error || 'The server could not complete the request.');
+  return body;
+}
+// The model's own 0-100 estimate of its answer, shown as a labeled chip.
+// Self-reported and separate from the pass/incorrect check - the two side
+// by side are the point (a confident wrong answer is the story).
+function confidenceChip(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '<span class="conf conf-none" title="The model did not state a confidence for this answer">Model: not stated</span>';
+  const v = Math.max(0, Math.min(100, Math.round(value)));
+  const level = v >= 80 ? ['high', 'High'] : v >= 50 ? ['medium', 'Medium'] : ['low', 'Low'];
+  return '<span class="conf conf-' + level[0] + '" title="Self-reported by the model; not a guarantee of correctness">Model: ' + level[1] + ' · ' + v + '%</span>';
+}
+// The governed side's calculated counterpart: what the layer's own signals
+// prove (attestation receipts, trust tiers, staleness) - derived by the
+// server from the actual transcript, never from the answer's wording.
+function layerChip(lc) {
+  if (!lc || !lc.level) return '';
+  if (typeof lc.score === 'number' && Number.isFinite(lc.score)) {
+    const v = Math.max(0, Math.min(100, Math.round(lc.score)));
+    const cls = v >= 80 ? 'conf-high' : v >= 50 ? 'conf-medium' : 'conf-low';
+    // The hover IS the calculation: the rubric's itemized point breakdown.
+    const tip = 'Calculated from the layer’s signals:\n' + (Array.isArray(lc.breakdown) ? lc.breakdown.join('\n') : (lc.reason || ''));
+    return '<span class="conf ' + cls + '" title="' + esc(tip) + '">Layer: ' + v + '%</span>';
+  }
+  return '<span class="conf conf-none" title="' + esc(lc.reason || 'No computed figure was served') + '">' + esc(lc.label || 'Layer: policy-based') + '</span>';
+}
+// A `final` event that carries no usable answer (the runner ran out of
+// steps, or the model returned nothing) is reported honestly, never
+// rendered as if it were a reply.
+function finalAnswerState(entry) {
+  const answer = typeof entry.answer === 'string' ? entry.answer.trim() : '';
+  if (answer === '[no final answer within the step budget]') return {complete: false, status: 'budget_exhausted'};
+  if (!answer) return {complete: false, status: 'empty'};
+  return {complete: true, status: 'complete'};
+}
+// Real spend for one answer, straight from the provider's usage accounting
+// on each request; empty when the run recorded none.
+function spendLabel(usage) {
+  return typeof usage?.cost_usd === 'number' && usage.cost_usd > 0 ? '$' + usage.cost_usd.toFixed(4) : '';
+}
+// One server-sent-events reader for both faces. fetch() rather than
+// EventSource so the request can carry headers (Accept, the access code)
+// and be aborted. Frames are split on the blank line; only `data:` lines
+// are payload, so the server's keepalive comments (`: ping`) never reach
+// onData. onData returning true ends the read early - the stream's own
+// `done` event - and the underlying reader is cancelled either way.
+async function readSSE(response, onData) {
+  if (!response.body) throw new Error('This browser could not open the response stream.');
+  const reader = response.body.getReader(), decoder = new TextDecoder(); let buffer = '';
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      buffer += decoder.decode(chunk.value || new Uint8Array(), {stream: !chunk.done});
+      buffer = buffer.replace(/\r\n/g, '\n');
+      let boundary;
+      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+        const block = buffer.slice(0, boundary); buffer = buffer.slice(boundary + 2);
+        const data = block.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+        if (data && onData(data)) return;
+      }
+      if (chunk.done) return;
+    }
+  } finally { await reader.cancel().catch(() => {}); }
+}
+// The soft spend gate (server: AVERIO_ACCESS_CODE). Each face decides where
+// the code lives - the demo keeps it for the session, the end-user page
+// remembers it - so the shared part is only the header it travels in.
+const ACCESS_HEADER = 'X-Averio-Access';
+function withAccess(headers, code) { return code ? {...headers, [ACCESS_HEADER]: code} : headers; }
+</script>
+<!-- variant:demo -->
+<script>
+'use strict';
+// The jury demo: the recorded story and the live duel. Everything here may
+// touch the demo's elements; none of it is ever served to the end-user face.
 const RULES = {
   '(none)': ['Everyday questions', 'Straightforward questions and agreed defaults for ambiguous terms.'],
   B1: ['Cancellations & changes', 'Negative rows are real booking movements and must be included in net totals.'],
@@ -498,13 +597,6 @@ function resetComparisonPanes() {
   }
 }
 
-async function getJSON(url) {
-  const response = await fetch(url, {headers: {'Accept': 'application/json'}});
-  let body;
-  try { body = await response.json(); } catch { throw new Error('The server returned an unreadable response.'); }
-  if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : body.error || 'The server could not complete the request.');
-  return body;
-}
 function groupedQuestions(results) {
   const map = new Map();
   for (const r of results) {
@@ -543,29 +635,6 @@ function renderOverview() {
   $('foot').textContent = 'Recorded run: ' + dateLabel + ' · Model: ' + (meta.model || 'not recorded') + ' · ' + QUESTIONS.length + ' questions. Synthetic data; all people and organization names are fictional. Recorded results are separate from new live answers.';
   $('results-overview').hidden = false;
 }
-// The model's own 0-100 estimate of its answer, shown as a labeled chip.
-// Self-reported and separate from the pass/incorrect check - the two side
-// by side are the point (a confident wrong answer is the story).
-function confidenceChip(value) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return '<span class="conf conf-none" title="The model did not state a confidence for this answer">Model: not stated</span>';
-  const v = Math.max(0, Math.min(100, Math.round(value)));
-  const level = v >= 80 ? ['high', 'High'] : v >= 50 ? ['medium', 'Medium'] : ['low', 'Low'];
-  return '<span class="conf conf-' + level[0] + '" title="Self-reported by the model; not a guarantee of correctness">Model: ' + level[1] + ' · ' + v + '%</span>';
-}
-// The governed side's calculated counterpart: what the layer's own signals
-// prove (attestation receipts, trust tiers, staleness) - derived by the
-// server from the actual transcript, never from the answer's wording.
-function layerChip(lc) {
-  if (!lc || !lc.level) return '';
-  if (typeof lc.score === 'number' && Number.isFinite(lc.score)) {
-    const v = Math.max(0, Math.min(100, Math.round(lc.score)));
-    const cls = v >= 80 ? 'conf-high' : v >= 50 ? 'conf-medium' : 'conf-low';
-    // The hover IS the calculation: the rubric's itemized point breakdown.
-    const tip = 'Calculated from the layer’s signals:\n' + (Array.isArray(lc.breakdown) ? lc.breakdown.join('\n') : (lc.reason || ''));
-    return '<span class="conf ' + cls + '" title="' + esc(tip) + '">Layer: ' + v + '%</span>';
-  }
-  return '<span class="conf conf-none" title="' + esc(lc.reason || 'No computed figure was served') + '">' + esc(lc.label || 'Layer: policy-based') + '</span>';
-}
 function status(ok, prefix = '') {
   if (typeof ok !== 'boolean') return '<span class="status unknown">' + prefix + 'Not recorded</span>';
   return '<span class="status ' + (ok ? 'pass' : 'fail') + '">' + prefix + (ok ? '✓ Passed' : '✗ Incorrect') + '</span>';
@@ -579,7 +648,7 @@ function renderAnswer(record, agent) {
   const hash = receipt?.query_hash;
   const leaked = record.score?.leaked_names?.length || 0;
   // Real spend, when the run recorded it (runs before cost tracking have none).
-  const spend = typeof record.usage?.cost_usd === 'number' && record.usage.cost_usd > 0 ? ' · $' + record.usage.cost_usd.toFixed(4) + ' API credits' : '';
+  const spend = spendLabel(record.usage) ? ' · ' + spendLabel(record.usage) + ' API credits' : '';
   // Model chip only when the run recorded a confidence (older runs have
   // none); the governed layer chip is server-derived from the transcript,
   // so it exists for every recorded governed answer.
@@ -652,6 +721,7 @@ async function loadConfig() {
     const steps = Array.isArray(CONFIG.setup_steps) && CONFIG.setup_steps.length ? CONFIG.setup_steps : ['Build the synthetic bookings database using the commands in README.md.', 'Set OPENROUTER_API_KEY in your local .env file, then restart the demo server.'];
     $('setup-steps').innerHTML = steps.map(step => '<li>' + esc(step) + '</li>').join('');
     $('setup').hidden = ready;
+    $('access-row').hidden = CONFIG.access_required !== true;
   } catch (error) {
     CONFIG = null;
     $('live-badge').textContent = 'Live · unavailable';
@@ -678,18 +748,13 @@ function initializePane(agent) {
   $('pane-' + agent).innerHTML = '<div class="answer-heading"><h3 class="agent-name ' + agent + '">' + (agent === 'governed' ? 'Governed' : 'Baseline') + '</h3><span id="steps-' + agent + '" class="tile-detail"></span></div><p class="live-activity pending" id="activity-' + agent + '">Working on your question…</p><div class="answer" id="answer-' + agent + '" tabindex="0" role="region" aria-label="' + (agent === 'governed' ? 'Governed' : 'Baseline') + ' answer" hidden></div><details class="evidence" id="trail-' + agent + '" hidden><summary>Live tool activity</summary><div class="events" id="events-' + agent + '"></div></details>';
 }
 function liveMessage(text, error = false) { $('live-message').textContent = text; $('live-message').classList.toggle('error', error); }
-function finalAnswerState(entry) {
-  const answer = typeof entry.answer === 'string' ? entry.answer.trim() : '';
-  if (answer === '[no final answer within the step budget]') return {complete: false, status: 'budget_exhausted'};
-  if (!answer) return {complete: false, status: 'empty'};
-  return {complete: true, status: 'complete'};
-}
 async function ask(event) {
   event.preventDefault();
   if (livePending || CONFIG?.live_ready !== true) return;
   const question = $('q').value.trim();
   if (!question) { $('q').setCustomValidity('Enter a question before starting a comparison.'); $('q').reportValidity(); return; }
   if (question.length > 500) { liveMessage('Please shorten your question to 500 characters.', true); return; }
+  if (CONFIG?.access_required === true && !$('access-code').value.trim()) { liveMessage('Enter the access code this server requires for live questions.', true); $('access-code').focus(); return; }
   // If the question is an unmodified sample pick, its eval id rides along so
   // the server can score both live answers with the SAME deterministic
   // checks as the recorded run. Edited or custom questions have no answer
@@ -723,10 +788,8 @@ async function ask(event) {
         $('answer-' + agent).innerHTML = '<p class="status fail">' + esc(entry.message || 'An unexpected error occurred.') + '</p>';
       } else {
         const outcome = finalAnswerState(entry);
-        // Real spend for this answer, straight from the provider's usage
-        // accounting on each request.
-        const spend = typeof entry.usage?.cost_usd === 'number' && entry.usage.cost_usd > 0 ? ' · $' + entry.usage.cost_usd.toFixed(4) : '';
-        $('steps-' + agent).textContent = (entry.steps ?? '—') + ' steps' + spend;
+        const spend = spendLabel(entry.usage);
+        $('steps-' + agent).textContent = (entry.steps ?? '—') + ' steps' + (spend ? ' · ' + spend : '');
         if (outcome.complete) {
           // Verdicts exist only for unmodified sample questions - the same
           // deterministic scorer as the recorded run, keyed by the eval id.
@@ -753,27 +816,16 @@ async function ask(event) {
     }
   };
   try {
-    const response = await fetch('/api/ask?q=' + encodeURIComponent(question) + (qid ? '&qid=' + encodeURIComponent(qid) : ''), {headers: {'Accept': 'text/event-stream'}, signal: liveController.signal});
+    // The access code travels as a header when this server requires one
+    // (loadConfig reveals the input); the demo keeps it for the session only.
+    const headers = withAccess({'Accept': 'text/event-stream'}, $('access-code').value.trim());
+    const response = await fetch('/api/ask?q=' + encodeURIComponent(question) + (qid ? '&qid=' + encodeURIComponent(qid) : ''), {headers, signal: liveController.signal});
     if (!response.ok) {
       let detail; try { const body = await response.json(); detail = typeof body.detail === 'string' ? body.detail : body.error; } catch { /* Use a readable fallback. */ }
       throw new Error(detail || 'The live request could not start (HTTP ' + response.status + '). Check setup and try again.');
     }
-    if (!response.body) throw new Error('This browser could not open the response stream.');
-    const reader = response.body.getReader(), decoder = new TextDecoder(); let buffer = '';
-    while (!done) {
-      const chunk = await reader.read();
-      buffer += decoder.decode(chunk.value || new Uint8Array(), {stream: !chunk.done});
-      buffer = buffer.replace(/\r\n/g, '\n');
-      let boundary;
-      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
-        const block = buffer.slice(0, boundary); buffer = buffer.slice(boundary + 2);
-        const data = block.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
-        if (data) processEvent(data);
-      }
-      if (chunk.done) break;
-    }
+    await readSSE(response, data => { processEvent(data); return done; });
     if (!done || completed.size < 2) throw new Error('The connection ended before both answers were complete. You can try the question again.');
-    await reader.cancel();
     liveMessage(unsuccessfulAgents ? 'Comparison finished: ' + unsuccessfulAgents + ' of 2 agents did not return a complete answer. Review the tool activity or try again.' : (qid ? 'Both answers are ready and scored with the same deterministic checks as the recorded run.' : 'Both answers are ready. Custom questions have no recorded answer key, so accuracy is not automatically scored.'), unsuccessfulAgents > 0);
     liveActionLabel = 'Ask again';
   } catch (error) {
@@ -841,5 +893,6 @@ document.querySelectorAll('a[href^="#"]').forEach(link => link.addEventListener(
 syncNav();
 Promise.allSettled([loadResults(), loadConfig(), loadCurated()]);
 </script>
+<!-- /variant -->
 </body>
 </html>

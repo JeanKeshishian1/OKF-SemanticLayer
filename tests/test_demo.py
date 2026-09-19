@@ -19,6 +19,9 @@ from __future__ import annotations
 
 import copy
 import json
+import re
+import shutil
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -171,6 +174,74 @@ def test_render_page_keeps_only_the_active_variants_regions():
     for face in ("demo", "enduser"):
         with pytest.raises(RuntimeError):
             demo.render_page(nested, face)
+
+
+def test_demo_page_is_the_default_and_carries_no_end_user_regions():
+    page = client.get("/").text
+    assert "Averio Governed Semantic Layer" in page and 'id="ask-form"' in page
+    assert "OKF Explorer" in page and "Averio Assistant" not in page
+    assert "<!-- variant" not in page and "<!-- /variant" not in page
+
+
+def test_enduser_page_serves_only_its_regions(monkeypatch):
+    """The end-user browser must never receive the demo: not hidden by CSS,
+    simply absent from the bytes served."""
+    monkeypatch.setenv("AVERIO_VARIANT", "enduser")
+    page = client.get("/").text
+    assert "Averio Assistant" in page
+    for demo_only in ('id="ask-form"', "OKF Explorer", "trapchart", "/api/results",
+                      "/api/ask", "Averio Governed Semantic Layer", "id=\"main\""):
+        assert demo_only not in page, demo_only
+    assert page.count("<script") == page.count("</script>")
+    assert page.count("<style") == page.count("</style>")
+    assert "<!-- variant" not in page and "<!-- /variant" not in page
+
+
+def test_variant_markers_sit_between_elements_and_never_nest():
+    """The convention render_page relies on, checked against the real file:
+    every opener has a closer, no region contains another, and no marker
+    sits inside a <script> or <style> element (where the comment would be
+    text, not markup, and a stripped region would leave broken code)."""
+    raw = demo.PAGE.read_text(encoding="utf-8")
+    openers = re.findall(r"<!--\s*variant:(\w+)\s*-->", raw)
+    closers = re.findall(r"<!--\s*/variant\s*-->", raw)
+    assert openers and len(openers) == len(closers)
+    assert set(openers) <= set(demo.VARIANTS)
+    for region in demo.VARIANT_REGION.finditer(raw):
+        assert "<!-- variant" not in region.group(2)
+    for marker in re.finditer(r"<!--\s*/?variant", raw):
+        prefix = raw[:marker.start()]
+        assert prefix.count("<script") == prefix.count("</script>")
+        assert prefix.count("<style") == prefix.count("</style>")
+    for face in demo.VARIANTS:
+        demo.render_page(raw, face)  # must not raise
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_served_scripts_boot_on_each_face(monkeypatch, tmp_path):
+    """Splitting one script into shared and per-face parts can leave a face
+    with a script that no longer parses, or whose boot code touches an
+    element only the other face has - either way a blank page. Boot every
+    <script> each face actually serves against a stub DOM (tests/boot_check.js)."""
+    def boot(name: str, html: str):
+        path = tmp_path / f"{name}.html"
+        path.write_text(html, encoding="utf-8")
+        return subprocess.run(["node", str(REPO / "tests" / "boot_check.js"), str(path)],
+                              capture_output=True, text=True)
+
+    pages = {}
+    for face in demo.VARIANTS:
+        monkeypatch.setenv("AVERIO_VARIANT", face)
+        pages[face] = client.get("/").text
+        result = boot(face, pages[face])
+        assert result.returncode == 0, f"{face}: {result.stderr or result.stdout}"
+    # Negative control: the check must have teeth. A demo-only element
+    # touched at boot on the end-user page is exactly the regression it
+    # exists to catch.
+    broken = pages["enduser"].replace(
+        "</body>", "<script>$('search').addEventListener('input', () => {});</script></body>")
+    result = boot("broken", broken)
+    assert result.returncode != 0 and "script" in result.stderr
 
 
 def test_variant_defaults_to_demo_and_ignores_unknown_values(monkeypatch):

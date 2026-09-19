@@ -331,23 +331,38 @@ def test_missing_key_is_a_readable_503(monkeypatch):
 
 def test_main_serves_from_the_environment(monkeypatch, capsys):
     """The deployment surface: face, host and port come from the
-    environment, and a public bind with no access code is warned about."""
+    environment, and a public bind without an access code does not start
+    unless an open endpoint is asked for explicitly."""
     captured = {}
     monkeypatch.setattr("uvicorn.run",
                         lambda app, host, port: captured.update(host=host, port=port))
     # Keep the developer's real .env out of the test process.
     monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: False)
+    monkeypatch.delenv("AVERIO_ALLOW_OPEN", raising=False)
     monkeypatch.setenv("AVERIO_VARIANT", "enduser")
     monkeypatch.setenv("HOST", "0.0.0.0")
     monkeypatch.setenv("PORT", "8123")
+    # Forgetting the code on a host must fail, not quietly expose credits.
+    with pytest.raises(SystemExit):
+        demo.main()
+    assert not captured
+    # An open endpoint can be asked for; it still warns.
+    monkeypatch.setenv("AVERIO_ALLOW_OPEN", "1")
     demo.main()
     assert captured == {"host": "0.0.0.0", "port": 8123}
     out, err = capsys.readouterr()
     assert "enduser" in out and "http://0.0.0.0:8123" in out
-    assert "AVERIO_ACCESS_CODE" in err
+    assert "WARNING" in err and "AVERIO_ACCESS_CODE" in err
+    # With a code set, a public bind is fine and quiet.
+    monkeypatch.delenv("AVERIO_ALLOW_OPEN")
     monkeypatch.setenv("AVERIO_ACCESS_CODE", "sesame")
     demo.main()
     assert "WARNING" not in capsys.readouterr()[1]
+    # Loopback never needs a code: a laptop, not a service.
+    monkeypatch.delenv("AVERIO_ACCESS_CODE")
+    monkeypatch.setenv("HOST", "127.0.0.1")
+    demo.main()
+    assert captured["host"] == "127.0.0.1"
 
 
 def test_main_refuses_an_unknown_variant(monkeypatch):

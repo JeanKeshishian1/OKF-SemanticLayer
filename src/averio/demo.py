@@ -40,7 +40,9 @@ for anything live; everything recorded works offline):
                       otherwise; hosting platforms inject PORT)
   AVERIO_ACCESS_CODE  when set, the credit-spending endpoints require it
                       as the X-Averio-Access header - a soft spend gate
-                      for a public URL, not authentication
+                      for a public URL, not authentication. A non-loopback
+                      HOST refuses to start without it unless
+                      AVERIO_ALLOW_OPEN=1 says an open endpoint is intended
   AVERIO_REPO         root holding eval/, data/, bundle/ for a
                       non-editable install; read at import, so it must be
                       a real process variable, not just a .env line
@@ -616,6 +618,14 @@ def main() -> None:
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "8000"))
     if host not in LOOPBACK_HOSTS and not access_code():
+        # A public bind with no code hands the owner's OpenRouter credits to
+        # anyone who finds the URL - the one deployment mistake this server
+        # must not allow by default. Forgetting the variable on the host
+        # therefore fails loudly; an open endpoint has to be asked for.
+        if os.environ.get("AVERIO_ALLOW_OPEN", "").strip().lower() not in ("1", "true", "yes"):
+            sys.exit(f"HOST={host} is reachable by others and AVERIO_ACCESS_CODE is not set. "
+                     "Set a code (the page asks visitors for it once), or set "
+                     "AVERIO_ALLOW_OPEN=1 to serve an open endpoint on purpose.")
         print("WARNING: serving on a non-loopback host with no AVERIO_ACCESS_CODE - "
               "anyone who reaches this URL can spend your OpenRouter credits.",
               file=sys.stderr)

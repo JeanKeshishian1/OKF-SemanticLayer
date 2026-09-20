@@ -286,6 +286,7 @@ def test_config_reports_variant_and_access(monkeypatch):
             "access_required", "max_question_chars"} <= set(cfg)
     assert cfg["access_required"] is False
     assert cfg["max_question_chars"] == demo.MAX_QUESTION_CHARS
+    assert client.get("/api/access").json() == {"ok": True}  # open server: nothing to check
     monkeypatch.setenv("AVERIO_ACCESS_CODE", "sesame")
     assert client.get("/api/config").json()["access_required"] is True
 
@@ -300,6 +301,11 @@ def test_access_code_guards_every_live_endpoint(monkeypatch):
     assert client.get("/").status_code == 200
     assert client.get("/api/curated").status_code == 200
     assert client.get("/api/results").status_code == 200
+    # The check route answers the same question without spending anything,
+    # so a page can refuse a wrong code the moment it is typed.
+    assert client.get("/api/access").status_code == 401
+    assert client.get("/api/access", headers={"X-Averio-Access": "wrong"}).status_code == 401
+    assert client.get("/api/access", headers={"X-Averio-Access": "sesame"}).json() == {"ok": True}
     # The chat is guarded the same way on its own face.
     monkeypatch.setenv("AVERIO_VARIANT", "enduser")
     turn = {"messages": [{"role": "user", "content": "q"}]}

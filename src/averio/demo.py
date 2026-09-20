@@ -580,6 +580,15 @@ def chat(request: ChatRequest) -> StreamingResponse:
     return sse(run_streamed(producers))
 
 
+@app.get("/api/access", dependencies=[needs_access])
+def access_check() -> JSONResponse:
+    """Lets a page verify a code before anything is asked, so a wrong or
+    stale code is refused at once rather than at the first refused
+    question. Spends nothing: the dependency has already done the
+    comparison, and with no code configured it simply answers ok."""
+    return JSONResponse({"ok": True})
+
+
 @app.get("/api/config")
 def config() -> JSONResponse:
     """What a page needs before its first request: which face it is,

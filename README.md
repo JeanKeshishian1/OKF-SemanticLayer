@@ -99,7 +99,7 @@ byte-identical across runs. The generator *hard-asserts* its own experimental
 validity: every trap population must be non-empty and every naive variant must move
 its metric by ≥1%, or generation fails loudly.
 
-The test suite (59 tests, offline, ~3s) guards the invariants that make the numbers
+The test suite (81 tests, offline, ~4s) guards the invariants that make the numbers
 meaningful — bundle SQL ≡ harness SQL, the attester's independent fiscal calendar ≡
 the executor's, the baseline prompt contains no governance vocabulary, and the
 scoring tolerance stays below the smallest trap separation.
@@ -128,6 +128,11 @@ copy .env.example .env          # then put your real OPENROUTER_API_KEY in .env
 # 5. The interactive demo — scorecard, per-trap chart, recorded answers,
 #    and a live ask-both-agents section with streamed tool calls
 .\.venv\Scripts\python.exe -m averio.demo    # then open http://127.0.0.1:8000
+
+# 6. The end-user assistant — the same server's other face: a chat with the
+#    governed agent (baseline switchable per chat), history kept in the browser
+$env:AVERIO_VARIANT='enduser'; $env:PORT='8001'
+.\.venv\Scripts\python.exe -m averio.demo    # then open http://127.0.0.1:8001
 ```
 
 The demo's recorded sections work fully offline from `eval/results.json`; only the
@@ -135,6 +140,33 @@ live section calls the API. Live answers to curated questions are scored on the
 spot by the same deterministic scorer, and real per-question USD spend is shown —
 in live runs the governed agent has also been consistently *cheaper*, because
 resolving a definition costs less than rediscovering it by trial and error.
+
+### Two faces, one server
+
+`averio.demo` serves either the **jury demo** (default) or the **end-user
+assistant** from the same code and the same page. A process serves one face,
+chosen by an environment variable, so the two deploy to two URLs from one
+checkout. The server strips the other face's markup, styles and scripts before
+sending the page, and each face's API routes answer 404 on the other.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `AVERIO_VARIANT` | `demo` | `demo` or `enduser` |
+| `HOST`, `PORT` | `127.0.0.1`, `8000` | Bind address and port (hosting platforms inject `PORT`) |
+| `AVERIO_ACCESS_CODE` | unset | When set, every request that calls the model needs this code, and both pages ask visitors for it. A soft spend gate for a public URL, not authentication |
+| `AVERIO_ALLOW_OPEN` | unset | A non-loopback `HOST` refuses to start without an access code; `1` overrides that on purpose |
+| `AVERIO_REPO` | repo root | Directory holding `eval/`, `data/`, `bundle/` for a non-editable install (read at import, so process environment only) |
+
+All of these may also live in `.env`; a real environment variable wins.
+
+The end-user assistant keeps chats in the browser's `localStorage` only — the
+server stores nothing, and each request carries the conversation. A chat is
+answered by one agent, fixed at its first message (governed by default);
+follow-ups replay the earlier turns as text, never the tool transcripts, so the
+governed agent re-consults the layer on every turn. Tool calls are narrated in
+plain language while the agent works. Behind a proxy, keep response buffering
+off (the stream sets the usual headers) and idle timeouts above the 15-second
+keepalive interval.
 
 ## Repository map
 
@@ -144,7 +176,7 @@ resolving a definition costs less than rediscovering it by trial and error.
 | `src/averio/` | Harness: fiscal calendar, sanctioned SQL + naive variants, seeded data generator, bundle loader/resolver, executor, `SemanticLayer` facade |
 | `src/averio/agents/` | The two experiment agents (shared tool loop; baseline vs governed) |
 | `src/averio/evaluate.py` | Eval runner + deterministic scorer |
-| `src/averio/demo.py` | Local demo server (FastAPI) + single-page UI |
+| `src/averio/demo.py` + `demo_page.html` | One FastAPI server and one page with two faces, chosen by `AVERIO_VARIANT`: the jury demo (recorded results + live duel) and the end-user assistant (chat, browser-side history) |
 | `eval/` | Question set, generated answer key, latest full results, run log |
 | `tests/` | Drift guards, conformance checks, scorer and agent tests |
 

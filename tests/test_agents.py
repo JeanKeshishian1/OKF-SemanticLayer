@@ -14,6 +14,7 @@ into its prompt deletes a trap from the experiment.
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -56,7 +57,10 @@ class FakeClient:
             completions=SimpleNamespace(create=self._create))
 
     def _create(self, **kwargs):
-        self.requests.append(kwargs)
+        # Snapshot: the runner keeps appending to the same messages list
+        # after the call, so recording the live object would show later
+        # turns as if they had been sent with this request.
+        self.requests.append(copy.deepcopy(kwargs))
         return SimpleNamespace(choices=[SimpleNamespace(message=self._script.pop(0))])
 
 
@@ -89,6 +93,42 @@ def test_runner_executes_tool_then_answers():
     second_request = client.requests[1]["messages"]
     tool_msgs = [m for m in second_request if m.get("role") == "tool"]
     assert tool_msgs and '"echoed": "hi"' in tool_msgs[0]["content"]
+
+
+def test_history_none_leaves_the_request_unchanged():
+    """The eval path: no history means exactly [system, question] - the
+    shape every recorded result was produced from."""
+    runner, client = _echo_runner([_assistant(content="ok")])
+    runner.ask("q")
+    assert [m["role"] for m in client.requests[0]["messages"]] == ["system", "user"]
+    assert client.requests[0]["messages"][1] == {"role": "user", "content": "q"}
+
+
+def test_history_turns_sit_between_system_and_question():
+    """Multi-turn chat: earlier text turns are replayed verbatim between the
+    system prompt and the new question, and nothing else changes - the
+    result dict keeps its keys and the transcript covers only this turn."""
+    runner, client = _echo_runner([_assistant(content="FY2025 too")])
+    result = runner.ask("and for FY2025?", history=[
+        {"role": "user", "content": "net bookings FY2026?"},
+        {"role": "assistant", "content": "It was X."}])
+    sent = client.requests[0]["messages"]
+    assert sent == [
+        {"role": "system", "content": runner.system_prompt},
+        {"role": "user", "content": "net bookings FY2026?"},
+        {"role": "assistant", "content": "It was X."},
+        {"role": "user", "content": "and for FY2025?"}]
+    assert result["question"] == "and for FY2025?"
+    assert [e["type"] for e in result["transcript"]] == ["answer"]
+
+
+def test_history_rejects_foreign_roles_before_any_request():
+    """A stray tool/system turn in history is a caller bug; refusing loudly
+    beats silently replaying a corrupted conversation."""
+    runner, client = _echo_runner([_assistant(content="never")])
+    with pytest.raises(ValueError, match="user/assistant"):
+        runner.ask("q", history=[{"role": "tool", "content": "{}"}])
+    assert client.requests == []
 
 
 def test_runner_survives_unknown_tool_and_bad_arguments():

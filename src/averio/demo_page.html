@@ -3,8 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- One page, two faces. The server keeps the regions marked for the face it
+     serves (AVERIO_VARIANT) and strips the other's before sending, so a
+     browser never receives the other face's markup, styles or scripts.
+     Markers sit only between elements and never nest; see render_page in
+     demo.py for the rules. -->
+<!-- variant:demo -->
 <meta name="description" content="Explore how shared business definitions change AI answers. Compare recorded examples and try the Averio governed semantic layer.">
 <title>OKF Explorer · Averio Semantic Layer</title>
+<!-- /variant -->
+<!-- variant:enduser -->
+<meta name="description" content="Ask questions about Averio bookings and get answers grounded in the governed semantic layer.">
+<title>Averio Assistant · Governed Semantic Layer</title>
+<!-- /variant -->
 <style>
 :root {
   color-scheme: dark;
@@ -138,7 +149,7 @@ input::placeholder, textarea::placeholder { color: #a5a8b9; opacity: 1; }
    surface: tan (low), amber (medium), mint (high - the theme's pass hue).
    The dot + text label always travel together, so color never carries the
    meaning alone. */
-.conf { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650; padding: 3px 9px; border-radius: 30px; border: 1px solid transparent; white-space: nowrap; }
+.conf { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650; padding: 3px 9px; border-radius: 30px; border: 1px solid transparent; white-space: nowrap; cursor: help; }
 .conf::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .conf-low { color: #d9b391; background: #2c2118; border-color: #55412e; }
 .conf-medium { color: #f0b57f; background: #33250f; border-color: #614a26; }
@@ -188,6 +199,8 @@ input::placeholder, textarea::placeholder { color: #a5a8b9; opacity: 1; }
 .state-icon { display: grid; place-items: center; background: var(--surface); width: 27px; height: 27px; flex-shrink: 0; border-radius: 8px; color: var(--muted); font-weight: 700; }
 .live-state strong { display: block; font-size: 13px; }
 .live-state p { color: var(--muted); font-size: 12px; margin: 3px 0 0; }
+.access-row { margin: 0 0 16px; }
+.access-row input { max-width: 340px; }
 .setup { margin: 0 0 21px; font-size: 12px; }
 .setup summary { font-weight: 650; color: var(--gov); }
 .setup ol { color: var(--muted); padding-left: 22px; }
@@ -330,9 +343,128 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
 }
 
 </style>
+<!-- variant:enduser -->
+<style>
+/* End-user face: a chat shell. It deliberately never uses the demo's
+   .sidebar / .shell / bare main rules (fixed 236px sidebar, page margins,
+   95px textareas) and only borrows leaf classes - .card, .btn, .pill,
+   .answer, .conf*, .agent-name, .live-activity, .evidence, .side-note. */
+.chat-app { display: grid; grid-template-columns: var(--sidebar-w, 280px) minmax(0, 1fr); min-height: 100vh; }
+.chat-app[data-sidebar="closed"] { grid-template-columns: minmax(0, 1fr); }
+.chat-app[data-sidebar="closed"] .chat-sidebar { display: none; }
+.chat-sidebar { position: sticky; top: 0; height: 100vh; overflow: hidden; background: var(--nav); border-right: 1px solid #272730; display: flex; flex-direction: column; padding: 16px 12px 14px; min-width: 0; }
+.chat-sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 2px 2px 0 6px; }
+.chat-sidebar .brand { font-size: 17px; min-width: 0; margin: 0; }
+.chat-sidebar .brand > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-sidebar .brand-mark { height: 34px; width: 34px; font-size: 19px; flex-shrink: 0; background: linear-gradient(145deg, #11252e, #252036); color: #bbd9ef; }
+.icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: transparent; color: #bec3d1; font-size: 20px; line-height: 1; border: 1px solid transparent; flex-shrink: 0; }
+.icon-btn:hover { background: #1b1c26; color: var(--ink); }
+.new-chat { margin: 16px 4px 4px; min-height: 40px; }
+.chat-list { display: block; flex: 1; min-height: 0; overflow-y: auto; padding: 2px 2px 8px; }
+.chat-list .nav-label { margin: 14px 10px 6px; }
+.chat-rows { list-style: none; margin: 0; padding: 0; }
+.chat-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-radius: 8px; }
+.chat-row:hover, .chat-row:focus-within, .chat-row.active { background: #1b1c26; }
+.chat-open { display: flex; align-items: center; gap: 9px; min-width: 0; width: 100%; text-align: left; background: transparent; color: #bec3d1; padding: 9px 4px 9px 10px; border-radius: 8px; font-size: 13px; }
+.chat-row.active .chat-open { color: var(--ink); }
+.agent-dot { width: 8px; height: 8px; border-radius: 3px; background: currentColor; flex-shrink: 0; }
+.chat-row-title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-menu-btn { opacity: 0; width: 30px; height: 30px; margin-right: 3px; font-size: 18px; letter-spacing: 1px; }
+.chat-row:hover .row-menu-btn, .chat-row:focus-within .row-menu-btn, .chat-row.active .row-menu-btn, .row-menu-btn[aria-expanded="true"] { opacity: 1; }
+@media (hover: none) { .row-menu-btn { opacity: 1; } }
+.row-menu { position: absolute; right: 6px; top: calc(100% - 4px); z-index: 20; min-width: 150px; display: flex; flex-direction: column; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 24px #0008; }
+.row-menu button { text-align: left; background: transparent; color: var(--ink); padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+.row-menu button:hover, .row-menu button:focus-visible { background: var(--soft); }
+.row-menu button.danger { color: var(--bad); }
+.rename-input { min-height: 32px; padding: 4px 8px; font-size: 13px; margin: 4px 4px 4px 6px; width: calc(100% - 10px); }
+.confirm-delete { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px 6px 10px; font-size: 12px; color: var(--muted); }
+.confirm-delete span { flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.confirm-delete .btn { min-height: 28px; padding: 3px 10px; font-size: 12px; }
+.chat-list-empty { color: #8b90a3; font-size: 12px; padding: 6px 10px; }
+.chat-sidebar .side-note { margin-top: 8px; padding: 12px 6px 0; }
+.access-state { margin: 8px 0 0; font-size: 11px; color: #a8adbd; }
+.access-state .text-button { font-size: 11px; min-height: 0; padding: 0; }
+.sidebar-resizer { position: absolute; top: 0; bottom: 0; right: 0; width: 6px; cursor: col-resize; }
+.sidebar-resizer:hover, .sidebar-resizer:focus-visible, body.resizing .sidebar-resizer { background: var(--focus); outline: none; }
+body.resizing { user-select: none; cursor: col-resize; }
+.chat-shell { display: flex; flex-direction: column; min-width: 0; min-height: 100vh; }
+.chat-topbar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 14px; background: #0d0d10; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.topbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.topbar-left strong { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-app[data-sidebar="open"] #sidebar-open, .chat-app[data-sidebar="open"] #topbar-new-chat { display: none; }
+.agent-badge.governed { color: var(--gov); background: var(--gov-soft); }
+.agent-badge.baseline { color: var(--base); background: var(--base-soft); }
+.chat-main { max-width: none; padding: 0; margin: 0; flex: 1; }
+.thread { max-width: 860px; margin: 0 auto; padding: 26px 20px 20px; display: flex; flex-direction: column; gap: 22px; }
+.welcome { text-align: center; padding: 56px 8px 16px; }
+.welcome h1 { font-size: 30px; letter-spacing: -1px; line-height: 1.2; margin: 0 auto 10px; max-width: none; }
+.welcome p { color: var(--muted); max-width: 560px; margin: 0 auto 26px; font-size: 14px; }
+.suggestions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: left; }
+.suggestions .btn { justify-content: flex-start; text-align: left; white-space: normal; font-weight: 500; line-height: 1.45; padding: 12px 14px; color: #d5d9e5; }
+.msg { min-width: 0; }
+.msg-user { display: flex; justify-content: flex-end; }
+.msg-user .msg-body { background: var(--soft); border: 1px solid var(--line); border-radius: 14px 14px 4px 14px; padding: 11px 15px; max-width: 75%; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg-assistant { border-left: 3px solid var(--gov); padding-left: 16px; }
+.msg-assistant.baseline { border-left-color: #9f81c5; }
+.msg-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 4px; }
+.msg-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.msg .live-activity { margin: 6px 0 8px; }
+.trail-box { border-top: 0; padding-top: 0; margin: 0 0 10px; }
+.trail-box summary { font-size: 12px; }
+.plain-trail { list-style: none; padding: 0; margin: 8px 0 0; max-height: 220px; overflow: auto; }
+.plain-trail li { padding: 5px 9px; margin: 4px 0; background: var(--soft); border-radius: 4px; font-size: 12px; color: #c9cdd8; }
+.plain-trail li::before { content: "›"; color: var(--gov); margin-right: 7px; }
+.msg-assistant.baseline .plain-trail li::before { color: var(--base); }
+.msg .answer { font-size: 14px; }
+.msg-foot { color: var(--muted); font-size: 11px; margin: 10px 0 0; }
+.composer-wrap { position: sticky; bottom: 0; padding: 8px 14px 14px; background: linear-gradient(180deg, transparent, var(--page) 35%); }
+.composer { max-width: 860px; margin: 0 auto; padding: 12px 14px 10px; display: flex; flex-direction: column; gap: 8px; background: #0f1117; border-color: #373947; }
+.composer-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.agent-switch { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.agent-switch label { display: inline-flex; position: relative; margin: 0; font-size: 12px; font-weight: 600; }
+.agent-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; min-height: 0; margin: 0; padding: 0; pointer-events: none; }
+.agent-switch span { padding: 6px 12px; border-radius: 6px; color: var(--muted); cursor: pointer; }
+.agent-switch input:checked + span { color: var(--ink); background: var(--soft); }
+.agent-switch input[value="governed"]:checked + span { color: var(--gov); background: var(--gov-soft); }
+.agent-switch input[value="baseline"]:checked + span { color: var(--base); background: var(--base-soft); }
+.agent-switch input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+.agent-switch input:disabled + span { cursor: not-allowed; opacity: .6; }
+.agent-switch input:disabled:checked + span { opacity: .9; }
+.agent-caption { flex: 1; min-width: 200px; margin: 0; color: var(--muted); font-size: 11px; }
+.composer textarea { min-height: 44px; max-height: 200px; resize: none; line-height: 1.5; padding: 10px 12px; }
+.composer .composer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.prompt-count { margin-right: auto; color: var(--muted); font-size: 11px; }
+.setup-notice, .app-notice { margin: 0; font-size: 12px; color: var(--muted); }
+.setup-notice.warn { color: var(--bad); }
+.modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: #000a; }
+.access-card { width: min(440px, 100%); padding: 24px; box-shadow: 0 20px 60px #000c; }
+.access-card h2 { font-size: 20px; }
+.access-card p { color: var(--muted); font-size: 13px; }
+.access-card form { display: flex; flex-direction: column; gap: 10px; }
+.access-card .composer-actions { display: flex; justify-content: flex-end; }
+.drawer-backdrop { position: fixed; inset: 0; background: #0008; z-index: 30; }
+@media (max-width: 960px) {
+  .chat-app, .chat-app[data-sidebar="closed"] { grid-template-columns: minmax(0, 1fr); }
+  .chat-sidebar, .chat-app[data-sidebar="closed"] .chat-sidebar { display: flex; position: fixed; inset: 0 auto 0 0; width: min(85vw, 320px); height: 100vh; transform: translateX(-100%); transition: transform .2s ease; z-index: 40; box-shadow: 0 0 40px #000a; }
+  .chat-app[data-drawer="open"] .chat-sidebar { transform: none; }
+  .chat-app[data-sidebar="open"] #sidebar-open, .chat-app[data-sidebar="open"] #topbar-new-chat { display: inline-grid; }
+  .sidebar-resizer { display: none; }
+  /* The shared 960px rules restyle .brand, .nav-label and .side-note for
+     the demo's horizontal bar; the drawer keeps the vertical layout. */
+  .chat-sidebar .brand { margin-bottom: 0; white-space: normal; }
+  .chat-list .nav-label, .chat-sidebar .side-note { display: block; }
+  .suggestions { grid-template-columns: 1fr; }
+  .msg-user .msg-body { max-width: 90%; }
+  .thread { padding: 18px 14px 16px; }
+  .welcome { padding-top: 34px; }
+  .welcome h1 { font-size: 26px; }
+}
+</style>
+<!-- /variant -->
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
+<!-- variant:demo -->
 <aside class="sidebar" aria-label="Project navigation">
   <a class="brand" href="#live"><span class="brand-mark" aria-hidden="true">◈</span><span>OKF Explorer<small>AVERIO · SEMANTIC LAYER</small></span></a>
   <div class="nav-label">Explore the project</div>
@@ -352,6 +484,7 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
       <div class="card live-card">
         <div class="mode-bar"><span class="pill" id="live-badge">Live · checking…</span></div>
         <div class="live-state" id="live-state" role="status"><span class="state-icon" aria-hidden="true">i</span><div><strong id="live-state-title">Checking live availability…</strong><p id="live-state-detail">Live questions run both agents against the same database.</p></div></div>
+        <div class="access-row" id="access-row" hidden><label for="access-code">Access code</label><input id="access-code" type="password" autocomplete="off" placeholder="This server requires a code for live questions"></div>
         <details class="setup" id="setup" hidden><summary>How to enable live questions</summary><ol id="setup-steps"></ol><p>See <code>README.md</code> in the project for complete setup instructions.</p><button class="btn" id="refresh-config" type="button">Check setup again</button></details>
         <form id="ask-form" class="live-form">
           <div id="live-controls"><label for="curated">Choose a sample question <span style="font-weight:400">(optional)</span></label><select id="curated" disabled><option value="">Choose a question to get started…</option></select>
@@ -438,10 +571,82 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
     <footer class="footer"><div><strong>Averio Governed Semantic Layer</strong><p id="foot">An OKF experiment using synthetic bookings data. All people and organization names in the dataset are fictional.</p></div><a href="#live">Back to comparison ↑</a></footer>
   </main>
 </div>
+<!-- /variant -->
+<!-- variant:enduser -->
+<div class="chat-app" id="chat-app" data-sidebar="open" data-drawer="closed">
+  <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+  <div class="modal-backdrop" id="access-modal" hidden>
+    <section class="card access-card" role="dialog" aria-modal="true" aria-labelledby="access-title">
+      <h2 id="access-title">Access code</h2>
+      <p>This assistant asks for a code before it answers questions.</p>
+      <form id="access-form"><label for="access-input">Code</label><input id="access-input" type="password" autocomplete="off" required><div class="composer-actions"><button class="btn primary" id="access-submit" type="submit">Continue</button></div><p class="status fail" id="access-error" role="alert" hidden></p></form>
+    </section>
+  </div>
+  <aside class="chat-sidebar" id="chat-sidebar" aria-label="Chats">
+    <div class="chat-sidebar-head">
+      <a class="brand" href="#main"><span class="brand-mark" aria-hidden="true">◈</span><span>Averio Assistant<small>GOVERNED SEMANTIC LAYER</small></span></a>
+      <button class="icon-btn" id="sidebar-close" type="button" aria-label="Close sidebar" title="Close sidebar">‹</button>
+    </div>
+    <button class="btn primary new-chat" id="new-chat" type="button">+ New chat</button>
+    <nav class="chat-list" id="chat-list" aria-label="Chat history">
+      <div class="nav-label" id="pinned-label" hidden>Pinned</div>
+      <ul class="chat-rows" id="pinned-list" hidden></ul>
+      <div class="nav-label" id="recent-label">Recent</div>
+      <ul class="chat-rows" id="recent-list"></ul>
+      <p class="chat-list-empty" id="chat-list-empty">Your chats will appear here. They are kept in this browser only.</p>
+    </nav>
+    <div class="side-note"><strong id="side-model">Averio bookings assistant</strong><p>Answers are generated on demand and may use API credits.</p><p class="access-state" id="access-state" hidden><span id="access-state-text">Access code saved in this browser</span> · <button type="button" class="text-button" id="access-change">Change</button></p></div>
+    <div class="sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" aria-valuemin="200" aria-valuemax="420" aria-valuenow="280" tabindex="0" title="Drag to resize · double-click to reset"></div>
+  </aside>
+  <div class="chat-shell">
+    <header class="chat-topbar">
+      <div class="topbar-left">
+        <button class="icon-btn" id="sidebar-open" type="button" aria-label="Open sidebar" aria-controls="chat-sidebar" aria-expanded="true" title="Open sidebar">≡</button>
+        <button class="icon-btn" id="topbar-new-chat" type="button" aria-label="New chat" title="New chat">+</button>
+        <strong id="thread-title">New chat</strong>
+        <span class="pill agent-badge" id="thread-agent" hidden></span>
+      </div>
+      <span class="pill" id="live-badge">Checking…</span>
+    </header>
+    <main id="main" class="chat-main" tabindex="-1">
+      <div class="thread" id="thread" role="log" aria-live="polite" aria-relevant="additions">
+        <div class="welcome" id="welcome">
+          <h1>Ask about Averio bookings</h1>
+          <p>Net bookings, fiscal periods, currencies, customers - answered with the governed business definitions, and with what the assistant did to get there.</p>
+          <div class="suggestions" id="suggestions" hidden></div>
+        </div>
+      </div>
+    </main>
+    <footer class="composer-wrap">
+      <form class="composer card" id="composer">
+        <div class="composer-top">
+          <div class="agent-switch" id="agent-switch" role="radiogroup" aria-label="Agent">
+            <label><input type="radio" name="agent" value="governed" checked><span>Governed</span></label>
+            <label><input type="radio" name="agent" value="baseline"><span>Baseline</span></label>
+          </div>
+          <p class="agent-caption" id="agent-caption">Governed answers are checked against the semantic layer. Baseline answers query the raw data without it.<span class="sr-only" id="agent-lock" hidden> The agent is fixed for this chat.</span></p>
+        </div>
+        <textarea id="prompt" rows="1" maxlength="500" placeholder="Ask a question about bookings…" aria-label="Your question" aria-describedby="prompt-count"></textarea>
+        <div class="composer-actions">
+          <span class="prompt-count" id="prompt-count">0 / 500</span>
+          <button class="btn" id="stop" type="button" hidden>Stop</button>
+          <button class="btn primary" id="send" type="submit" disabled>Send</button>
+        </div>
+        <p class="setup-notice" id="setup-notice" role="status" hidden></p>
+        <p class="app-notice" id="app-notice" role="status" hidden></p>
+      </form>
+    </footer>
+  </div>
+</div>
+<!-- /variant -->
 <script>
 'use strict';
-// This page is intentionally dependency-free. Treat all result/model text as
-// untrusted text: escape before applying the small, local Markdown renderer.
+// Shared by both faces of the page (see the markers above). Only helpers
+// with no side effects and no reference to either face's elements may live
+// here: this script also runs on the end-user page, where none of the
+// demo's ids exist, and a top-level reference to one would abort it. The
+// page is intentionally dependency-free. Treat all result/model text as
+// untrusted: escape before applying the small, local Markdown renderer.
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const inline = value => esc(value).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -467,6 +672,85 @@ function markdown(value) {
   }
   return out.join('');
 }
+async function getJSON(url) {
+  const response = await fetch(url, {headers: {'Accept': 'application/json'}});
+  let body;
+  try { body = await response.json(); } catch { throw new Error('The server returned an unreadable response.'); }
+  if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : body.error || 'The server could not complete the request.');
+  return body;
+}
+// The model's own 0-100 estimate of its answer, shown as a labeled chip.
+// Self-reported and separate from the pass/incorrect check - the two side
+// by side are the point (a confident wrong answer is the story).
+function confidenceChip(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '<span class="conf conf-none" title="The model did not state a confidence for this answer">Model: not stated</span>';
+  const v = Math.max(0, Math.min(100, Math.round(value)));
+  const level = v >= 80 ? ['high', 'High'] : v >= 50 ? ['medium', 'Medium'] : ['low', 'Low'];
+  return '<span class="conf conf-' + level[0] + '" title="Self-reported by the model; not a guarantee of correctness">Model: ' + level[1] + ' · ' + v + '%</span>';
+}
+// The governed side's calculated counterpart: what the layer's own signals
+// prove (attestation receipts, trust tiers, staleness) - derived by the
+// server from the actual transcript, never from the answer's wording.
+function layerChip(lc) {
+  if (!lc || !lc.level) return '';
+  if (typeof lc.score === 'number' && Number.isFinite(lc.score)) {
+    const v = Math.max(0, Math.min(100, Math.round(lc.score)));
+    const cls = v >= 80 ? 'conf-high' : v >= 50 ? 'conf-medium' : 'conf-low';
+    // The hover IS the calculation: the rubric's itemized point breakdown.
+    const tip = 'Calculated from the layer’s signals:\n' + (Array.isArray(lc.breakdown) ? lc.breakdown.join('\n') : (lc.reason || ''));
+    return '<span class="conf ' + cls + '" title="' + esc(tip) + '">Layer: ' + v + '%</span>';
+  }
+  return '<span class="conf conf-none" title="' + esc(lc.reason || 'No computed figure was served') + '">' + esc(lc.label || 'Layer: policy-based') + '</span>';
+}
+// A `final` event that carries no usable answer (the runner ran out of
+// steps, or the model returned nothing) is reported honestly, never
+// rendered as if it were a reply.
+function finalAnswerState(entry) {
+  const answer = typeof entry.answer === 'string' ? entry.answer.trim() : '';
+  if (answer === '[no final answer within the step budget]') return {complete: false, status: 'budget_exhausted'};
+  if (!answer) return {complete: false, status: 'empty'};
+  return {complete: true, status: 'complete'};
+}
+// Real spend for one answer, straight from the provider's usage accounting
+// on each request; empty when the run recorded none.
+function spendLabel(usage) {
+  return typeof usage?.cost_usd === 'number' && usage.cost_usd > 0 ? '$' + usage.cost_usd.toFixed(4) : '';
+}
+// One server-sent-events reader for both faces. fetch() rather than
+// EventSource so the request can carry headers (Accept, the access code)
+// and be aborted. Frames are split on the blank line; only `data:` lines
+// are payload, so the server's keepalive comments (`: ping`) never reach
+// onData. onData returning true ends the read early - the stream's own
+// `done` event - and the underlying reader is cancelled either way.
+async function readSSE(response, onData) {
+  if (!response.body) throw new Error('This browser could not open the response stream.');
+  const reader = response.body.getReader(), decoder = new TextDecoder(); let buffer = '';
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      buffer += decoder.decode(chunk.value || new Uint8Array(), {stream: !chunk.done});
+      buffer = buffer.replace(/\r\n/g, '\n');
+      let boundary;
+      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+        const block = buffer.slice(0, boundary); buffer = buffer.slice(boundary + 2);
+        const data = block.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+        if (data && onData(data)) return;
+      }
+      if (chunk.done) return;
+    }
+  } finally { await reader.cancel().catch(() => {}); }
+}
+// The soft spend gate (server: AVERIO_ACCESS_CODE). Each face decides where
+// the code lives - the demo keeps it for the session, the end-user page
+// remembers it - so the shared part is only the header it travels in.
+const ACCESS_HEADER = 'X-Averio-Access';
+function withAccess(headers, code) { return code ? {...headers, [ACCESS_HEADER]: code} : headers; }
+</script>
+<!-- variant:demo -->
+<script>
+'use strict';
+// The jury demo: the recorded story and the live duel. Everything here may
+// touch the demo's elements; none of it is ever served to the end-user face.
 const RULES = {
   '(none)': ['Everyday questions', 'Straightforward questions and agreed defaults for ambiguous terms.'],
   B1: ['Cancellations & changes', 'Negative rows are real booking movements and must be included in net totals.'],
@@ -498,13 +782,6 @@ function resetComparisonPanes() {
   }
 }
 
-async function getJSON(url) {
-  const response = await fetch(url, {headers: {'Accept': 'application/json'}});
-  let body;
-  try { body = await response.json(); } catch { throw new Error('The server returned an unreadable response.'); }
-  if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : body.error || 'The server could not complete the request.');
-  return body;
-}
 function groupedQuestions(results) {
   const map = new Map();
   for (const r of results) {
@@ -543,29 +820,6 @@ function renderOverview() {
   $('foot').textContent = 'Recorded run: ' + dateLabel + ' · Model: ' + (meta.model || 'not recorded') + ' · ' + QUESTIONS.length + ' questions. Synthetic data; all people and organization names are fictional. Recorded results are separate from new live answers.';
   $('results-overview').hidden = false;
 }
-// The model's own 0-100 estimate of its answer, shown as a labeled chip.
-// Self-reported and separate from the pass/incorrect check - the two side
-// by side are the point (a confident wrong answer is the story).
-function confidenceChip(value) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return '<span class="conf conf-none" title="The model did not state a confidence for this answer">Model: not stated</span>';
-  const v = Math.max(0, Math.min(100, Math.round(value)));
-  const level = v >= 80 ? ['high', 'High'] : v >= 50 ? ['medium', 'Medium'] : ['low', 'Low'];
-  return '<span class="conf conf-' + level[0] + '" title="Self-reported by the model; not a guarantee of correctness">Model: ' + level[1] + ' · ' + v + '%</span>';
-}
-// The governed side's calculated counterpart: what the layer's own signals
-// prove (attestation receipts, trust tiers, staleness) - derived by the
-// server from the actual transcript, never from the answer's wording.
-function layerChip(lc) {
-  if (!lc || !lc.level) return '';
-  if (typeof lc.score === 'number' && Number.isFinite(lc.score)) {
-    const v = Math.max(0, Math.min(100, Math.round(lc.score)));
-    const cls = v >= 80 ? 'conf-high' : v >= 50 ? 'conf-medium' : 'conf-low';
-    // The hover IS the calculation: the rubric's itemized point breakdown.
-    const tip = 'Calculated from the layer’s signals:\n' + (Array.isArray(lc.breakdown) ? lc.breakdown.join('\n') : (lc.reason || ''));
-    return '<span class="conf ' + cls + '" title="' + esc(tip) + '">Layer: ' + v + '%</span>';
-  }
-  return '<span class="conf conf-none" title="' + esc(lc.reason || 'No computed figure was served') + '">' + esc(lc.label || 'Layer: policy-based') + '</span>';
-}
 function status(ok, prefix = '') {
   if (typeof ok !== 'boolean') return '<span class="status unknown">' + prefix + 'Not recorded</span>';
   return '<span class="status ' + (ok ? 'pass' : 'fail') + '">' + prefix + (ok ? '✓ Passed' : '✗ Incorrect') + '</span>';
@@ -579,7 +833,7 @@ function renderAnswer(record, agent) {
   const hash = receipt?.query_hash;
   const leaked = record.score?.leaked_names?.length || 0;
   // Real spend, when the run recorded it (runs before cost tracking have none).
-  const spend = typeof record.usage?.cost_usd === 'number' && record.usage.cost_usd > 0 ? ' · $' + record.usage.cost_usd.toFixed(4) + ' API credits' : '';
+  const spend = spendLabel(record.usage) ? ' · ' + spendLabel(record.usage) + ' API credits' : '';
   // Model chip only when the run recorded a confidence (older runs have
   // none); the governed layer chip is server-derived from the transcript,
   // so it exists for every recorded governed answer.
@@ -652,6 +906,7 @@ async function loadConfig() {
     const steps = Array.isArray(CONFIG.setup_steps) && CONFIG.setup_steps.length ? CONFIG.setup_steps : ['Build the synthetic bookings database using the commands in README.md.', 'Set OPENROUTER_API_KEY in your local .env file, then restart the demo server.'];
     $('setup-steps').innerHTML = steps.map(step => '<li>' + esc(step) + '</li>').join('');
     $('setup').hidden = ready;
+    $('access-row').hidden = CONFIG.access_required !== true;
   } catch (error) {
     CONFIG = null;
     $('live-badge').textContent = 'Live · unavailable';
@@ -678,18 +933,13 @@ function initializePane(agent) {
   $('pane-' + agent).innerHTML = '<div class="answer-heading"><h3 class="agent-name ' + agent + '">' + (agent === 'governed' ? 'Governed' : 'Baseline') + '</h3><span id="steps-' + agent + '" class="tile-detail"></span></div><p class="live-activity pending" id="activity-' + agent + '">Working on your question…</p><div class="answer" id="answer-' + agent + '" tabindex="0" role="region" aria-label="' + (agent === 'governed' ? 'Governed' : 'Baseline') + ' answer" hidden></div><details class="evidence" id="trail-' + agent + '" hidden><summary>Live tool activity</summary><div class="events" id="events-' + agent + '"></div></details>';
 }
 function liveMessage(text, error = false) { $('live-message').textContent = text; $('live-message').classList.toggle('error', error); }
-function finalAnswerState(entry) {
-  const answer = typeof entry.answer === 'string' ? entry.answer.trim() : '';
-  if (answer === '[no final answer within the step budget]') return {complete: false, status: 'budget_exhausted'};
-  if (!answer) return {complete: false, status: 'empty'};
-  return {complete: true, status: 'complete'};
-}
 async function ask(event) {
   event.preventDefault();
   if (livePending || CONFIG?.live_ready !== true) return;
   const question = $('q').value.trim();
   if (!question) { $('q').setCustomValidity('Enter a question before starting a comparison.'); $('q').reportValidity(); return; }
   if (question.length > 500) { liveMessage('Please shorten your question to 500 characters.', true); return; }
+  if (CONFIG?.access_required === true && !$('access-code').value.trim()) { liveMessage('Enter the access code this server requires for live questions.', true); $('access-code').focus(); return; }
   // If the question is an unmodified sample pick, its eval id rides along so
   // the server can score both live answers with the SAME deterministic
   // checks as the recorded run. Edited or custom questions have no answer
@@ -723,10 +973,8 @@ async function ask(event) {
         $('answer-' + agent).innerHTML = '<p class="status fail">' + esc(entry.message || 'An unexpected error occurred.') + '</p>';
       } else {
         const outcome = finalAnswerState(entry);
-        // Real spend for this answer, straight from the provider's usage
-        // accounting on each request.
-        const spend = typeof entry.usage?.cost_usd === 'number' && entry.usage.cost_usd > 0 ? ' · $' + entry.usage.cost_usd.toFixed(4) : '';
-        $('steps-' + agent).textContent = (entry.steps ?? '—') + ' steps' + spend;
+        const spend = spendLabel(entry.usage);
+        $('steps-' + agent).textContent = (entry.steps ?? '—') + ' steps' + (spend ? ' · ' + spend : '');
         if (outcome.complete) {
           // Verdicts exist only for unmodified sample questions - the same
           // deterministic scorer as the recorded run, keyed by the eval id.
@@ -753,27 +1001,16 @@ async function ask(event) {
     }
   };
   try {
-    const response = await fetch('/api/ask?q=' + encodeURIComponent(question) + (qid ? '&qid=' + encodeURIComponent(qid) : ''), {headers: {'Accept': 'text/event-stream'}, signal: liveController.signal});
+    // The access code travels as a header when this server requires one
+    // (loadConfig reveals the input); the demo keeps it for the session only.
+    const headers = withAccess({'Accept': 'text/event-stream'}, $('access-code').value.trim());
+    const response = await fetch('/api/ask?q=' + encodeURIComponent(question) + (qid ? '&qid=' + encodeURIComponent(qid) : ''), {headers, signal: liveController.signal});
     if (!response.ok) {
       let detail; try { const body = await response.json(); detail = typeof body.detail === 'string' ? body.detail : body.error; } catch { /* Use a readable fallback. */ }
       throw new Error(detail || 'The live request could not start (HTTP ' + response.status + '). Check setup and try again.');
     }
-    if (!response.body) throw new Error('This browser could not open the response stream.');
-    const reader = response.body.getReader(), decoder = new TextDecoder(); let buffer = '';
-    while (!done) {
-      const chunk = await reader.read();
-      buffer += decoder.decode(chunk.value || new Uint8Array(), {stream: !chunk.done});
-      buffer = buffer.replace(/\r\n/g, '\n');
-      let boundary;
-      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
-        const block = buffer.slice(0, boundary); buffer = buffer.slice(boundary + 2);
-        const data = block.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
-        if (data) processEvent(data);
-      }
-      if (chunk.done) break;
-    }
+    await readSSE(response, data => { processEvent(data); return done; });
     if (!done || completed.size < 2) throw new Error('The connection ended before both answers were complete. You can try the question again.');
-    await reader.cancel();
     liveMessage(unsuccessfulAgents ? 'Comparison finished: ' + unsuccessfulAgents + ' of 2 agents did not return a complete answer. Review the tool activity or try again.' : (qid ? 'Both answers are ready and scored with the same deterministic checks as the recorded run.' : 'Both answers are ready. Custom questions have no recorded answer key, so accuracy is not automatically scored.'), unsuccessfulAgents > 0);
     liveActionLabel = 'Ask again';
   } catch (error) {
@@ -841,5 +1078,538 @@ document.querySelectorAll('a[href^="#"]').forEach(link => link.addEventListener(
 syncNav();
 Promise.allSettled([loadResults(), loadConfig(), loadCurated()]);
 </script>
+<!-- /variant -->
+<!-- variant:enduser -->
+<script>
+'use strict';
+// The end-user face: a chat with ONE agent per conversation, a sidebar of
+// past chats, and nothing of the demo. Wrapped in an IIFE so its names stay
+// out of the global lexical scope the shared script lives in. All state is
+// in this browser's localStorage - the server keeps no history and each
+// request carries the whole conversation - and everything the model
+// returns passes through esc() or the shared markdown() renderer.
+(() => {
+const STORE = 'averio.assistant.v1.';
+const SIDEBAR = {min: 200, max: 420, initial: 280};
+const TITLE_MAX = 60, TRAIL_ARG_MAX = 500;
+const mobileQuery = window.matchMedia('(max-width: 960px)');
+const isMobile = () => mobileQuery.matches === true;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const clampWidth = w => Math.min(SIDEBAR.max, Math.max(SIDEBAR.min, Math.round(Number(w) || SIDEBAR.initial)));
+const agentLabel = agent => (agent === 'baseline' ? 'Baseline' : 'Governed');
+const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
+
+// --- Storage. An index of chats plus one record per chat, split so each
+// write stays small and a delete is precise. Every access is guarded:
+// localStorage can be missing, full or blocked, and the page must keep
+// working (for the session) without it.
+function read(key, fallback) {
+  try { const raw = localStorage.getItem(STORE + key); return raw === null ? fallback : JSON.parse(raw); }
+  catch { return fallback; }
+}
+function write(key, value) {
+  try { localStorage.setItem(STORE + key, JSON.stringify(value)); return true; }
+  catch { return makeRoom(key, value); }
+}
+function erase(key) { try { localStorage.removeItem(STORE + key); } catch { /* nothing stored */ } }
+// Out of space: tool trails are the bulk (one line per call, per answer).
+// Drop them from the oldest chats first and retry; answers are never dropped.
+function makeRoom(key, value) {
+  for (const entry of [...index].sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0))) {
+    const chat = read('chat.' + entry.id, null);
+    if (!chat || !Array.isArray(chat.messages) || !chat.messages.some(m => Array.isArray(m.trail) && m.trail.length)) continue;
+    chat.messages.forEach(m => { m.trail = []; });
+    try { localStorage.setItem(STORE + 'chat.' + entry.id, JSON.stringify(chat)); } catch { continue; }
+    try { localStorage.setItem(STORE + key, JSON.stringify(value)); notice('Older chats were trimmed to make room in this browser’s storage.'); return true; }
+    catch { /* keep trimming */ }
+  }
+  notice('This browser’s storage is full; the latest change could not be saved.');
+  return false;
+}
+function notice(text) { const el = $('app-notice'); el.textContent = text || ''; el.hidden = !text; }
+
+// --- State
+let index = (Array.isArray(read('index', [])) ? read('index', []) : []).filter(e => e && typeof e.id === 'string');
+let activeId = null, messages = [];   // the open chat; null = fresh, unsaved until the first message
+let CONFIG = null, curated = [];
+let pending = false, controller = null, stopped = false;
+let accessCode = typeof read('access', '') === 'string' ? read('access', '') : '';
+let openMenu = null;                   // one row menu at a time
+const chatOf = id => index.find(e => e.id === id) || null;
+const active = () => (activeId ? chatOf(activeId) : null);
+const saveIndex = () => write('index', index);
+const maxChars = () => CONFIG?.max_question_chars || 500;
+
+// --- Sidebar: open/closed and width persist (desktop). Under 960px the same
+// element is an overlay drawer that always starts closed and never resizes.
+const app = $('chat-app');
+const sidebar = Object.assign({open: true, width: SIDEBAR.initial}, read('sidebar', {}) || {});
+function applySidebar() {
+  sidebar.width = clampWidth(sidebar.width);
+  app.style.setProperty('--sidebar-w', sidebar.width + 'px');
+  $('sidebar-resizer').setAttribute('aria-valuenow', String(sidebar.width));
+  app.dataset.sidebar = sidebar.open ? 'open' : 'closed';
+  $('sidebar-open').setAttribute('aria-expanded', String(isMobile() ? app.dataset.drawer === 'open' : sidebar.open));
+}
+function setSidebar(open) {
+  if (isMobile()) { setDrawer(open); return; }
+  sidebar.open = open; write('sidebar', sidebar); applySidebar();
+  (open ? $('new-chat') : $('sidebar-open')).focus();
+}
+function setDrawer(open) {
+  app.dataset.drawer = open ? 'open' : 'closed';
+  $('drawer-backdrop').hidden = !open;
+  $('sidebar-open').setAttribute('aria-expanded', String(open));
+  if (open) $('new-chat').focus();
+}
+function setWidth(width, persist) {
+  sidebar.width = clampWidth(width); applySidebar();
+  if (persist) write('sidebar', sidebar);
+}
+const resizer = $('sidebar-resizer');
+resizer.addEventListener('pointerdown', event => {
+  if (isMobile()) return;
+  event.preventDefault();
+  resizer.setPointerCapture(event.pointerId);
+  document.body.classList.add('resizing');
+  const left = app.getBoundingClientRect().left;
+  const move = e => setWidth(e.clientX - left, false);
+  const up = () => {
+    resizer.removeEventListener('pointermove', move); resizer.removeEventListener('pointerup', up); resizer.removeEventListener('pointercancel', up);
+    document.body.classList.remove('resizing'); write('sidebar', sidebar);
+  };
+  resizer.addEventListener('pointermove', move); resizer.addEventListener('pointerup', up); resizer.addEventListener('pointercancel', up);
+});
+resizer.addEventListener('keydown', event => {
+  const step = event.shiftKey ? 48 : 16;
+  const targets = {ArrowLeft: sidebar.width - step, ArrowRight: sidebar.width + step, Home: SIDEBAR.min, End: SIDEBAR.max};
+  if (!(event.key in targets)) return;
+  event.preventDefault(); setWidth(targets[event.key], true);
+});
+resizer.addEventListener('dblclick', () => setWidth(SIDEBAR.initial, true));
+
+// --- Chat list: pinned first, then recent, both by last update.
+function renderList() {
+  closeMenu();
+  const byRecent = (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0);
+  const pinned = index.filter(e => e.pinned).sort(byRecent), recent = index.filter(e => !e.pinned).sort(byRecent);
+  const row = entry => {
+    const li = document.createElement('li');
+    li.className = 'chat-row' + (entry.id === activeId ? ' active' : ''); li.dataset.id = entry.id;
+    li.innerHTML = '<button type="button" class="chat-open"' + (entry.id === activeId ? ' aria-current="page"' : '') + ' title="' + esc(agentLabel(entry.agent)) + ' agent"><span class="agent-dot ' + esc(entry.agent) + '" aria-hidden="true"></span><span class="chat-row-title">' + esc(entry.title) + '</span></button>' +
+      '<button type="button" class="icon-btn row-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Options for ' + esc(entry.title) + '">⋯</button>';
+    return li;
+  };
+  $('pinned-list').replaceChildren(...pinned.map(row)); $('recent-list').replaceChildren(...recent.map(row));
+  $('pinned-label').hidden = $('pinned-list').hidden = !pinned.length;
+  $('recent-label').hidden = $('recent-list').hidden = !recent.length;
+  $('chat-list-empty').hidden = index.length > 0;
+}
+const rowEl = (id, selector) => $('chat-list').querySelector('.chat-row[data-id="' + id + '"] ' + selector);
+function focusRow(id, selector) { const el = rowEl(id, selector); if (el) el.focus(); return !!el; }
+$('chat-list').addEventListener('click', event => {
+  const row = event.target.closest('.chat-row'); if (!row) return;
+  if (event.target.closest('.chat-open')) { openChat(row.dataset.id); if (isMobile()) setDrawer(false); }
+  else if (event.target.closest('.row-menu-btn')) toggleMenu(row);
+});
+function closeMenu(refocus) {
+  if (!openMenu) return;
+  const {menu, button} = openMenu; openMenu = null;
+  menu.remove(); button.setAttribute('aria-expanded', 'false');
+  if (refocus) button.focus();
+}
+function toggleMenu(row) {
+  if (openMenu && openMenu.row === row) { closeMenu(true); return; }
+  closeMenu();
+  const entry = chatOf(row.dataset.id); if (!entry) return;
+  const button = row.querySelector('.row-menu-btn');
+  const menu = document.createElement('div'); menu.className = 'row-menu'; menu.setAttribute('role', 'menu');
+  menu.innerHTML = '<button type="button" role="menuitem" data-act="rename">Rename</button><button type="button" role="menuitem" data-act="pin">' + (entry.pinned ? 'Unpin' : 'Pin') + '</button><button type="button" role="menuitem" class="danger" data-act="delete">Delete</button>';
+  row.appendChild(menu); button.setAttribute('aria-expanded', 'true');
+  openMenu = {row, menu, button};
+  menu.querySelector('button').focus();
+  menu.addEventListener('click', e => {
+    const act = e.target.closest('[data-act]')?.dataset.act; if (!act) return;
+    e.stopPropagation(); closeMenu();
+    if (act === 'rename') startRename(row, entry); else if (act === 'pin') togglePin(entry); else confirmDelete(row, entry);
+  });
+  menu.addEventListener('keydown', e => {
+    const items = [...menu.querySelectorAll('[role="menuitem"]')], i = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(true); }
+  });
+}
+document.addEventListener('click', event => { if (openMenu && !openMenu.menu.contains(event.target) && !openMenu.button.contains(event.target)) closeMenu(); });
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  if (openMenu) closeMenu(true); else if (isMobile() && app.dataset.drawer === 'open') setDrawer(false);
+});
+function startRename(row, entry) {
+  const input = document.createElement('input');
+  input.className = 'rename-input'; input.type = 'text'; input.maxLength = TITLE_MAX; input.value = entry.title; input.setAttribute('aria-label', 'Chat name');
+  row.querySelector('.chat-open').replaceWith(input); input.focus(); input.select();
+  let finished = false;
+  const finish = commit => {
+    if (finished) return; finished = true;
+    const value = input.value.trim();
+    if (commit && value && value !== entry.title) { entry.title = value.slice(0, TITLE_MAX); entry.titleSource = 'user'; saveIndex(); syncHeader(); }
+    renderList(); focusRow(entry.id, '.chat-open');
+  };
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); finish(true); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); } });
+  input.addEventListener('blur', () => finish(true));
+}
+function togglePin(entry) { entry.pinned = !entry.pinned; saveIndex(); renderList(); focusRow(entry.id, '.row-menu-btn'); }
+function confirmDelete(row, entry) {
+  row.innerHTML = '<div class="confirm-delete"><span>Delete “' + esc(entry.title) + '”?</span><button type="button" class="btn" data-confirm="yes">Delete</button><button type="button" class="btn" data-confirm="no">Cancel</button></div>';
+  const yes = row.querySelector('[data-confirm="yes"]'), no = row.querySelector('[data-confirm="no"]');
+  yes.focus();
+  const restore = () => { renderList(); focusRow(entry.id, '.row-menu-btn'); };
+  no.addEventListener('click', e => { e.stopPropagation(); restore(); });
+  row.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); restore(); } });
+  yes.addEventListener('click', e => {
+    e.stopPropagation();
+    const order = [...$('chat-list').querySelectorAll('.chat-row')].map(r => r.dataset.id), at = order.indexOf(entry.id);
+    const next = order[at + 1] || order[at - 1];
+    index = index.filter(x => x.id !== entry.id); erase('chat.' + entry.id); saveIndex();
+    if (entry.id === activeId) newChat(false); else renderList();
+    if (!(next && focusRow(next, '.chat-open'))) $('new-chat').focus();
+  });
+}
+
+// --- Thread rendering. An assistant message is painted from its data, so a
+// restored chat and a live one look identical.
+function scrollToEnd() { window.scrollTo({top: document.documentElement.scrollHeight}); }
+function trailItem(t) {
+  const li = document.createElement('li');
+  li.textContent = describeToolCall(t.tool, t.arguments);
+  li.title = String(t.tool || 'tool') + ' ' + String(t.arguments || '').slice(0, 220);  // the raw call, for the curious
+  return li;
+}
+function messageNode(m, agent) {
+  const node = document.createElement('article'); node.dataset.id = m.id;
+  if (m.role === 'user') { node.className = 'msg msg-user'; node.innerHTML = '<div class="msg-body">' + esc(m.content) + '</div>'; return node; }
+  const name = agentLabel(agent);
+  node.className = 'msg msg-assistant ' + agent;
+  node.innerHTML = '<div class="msg-head"><span class="agent-name ' + agent + '">' + name + '</span><span class="msg-chips"></span></div><p class="live-activity"></p>' +
+    '<details class="evidence trail-box" hidden><summary></summary><ol class="plain-trail"></ol></details>' +
+    '<div class="answer" role="region" tabindex="0" aria-label="' + name + ' answer" hidden></div><p class="msg-foot" hidden></p>';
+  paintAssistant(node, m, agent);
+  return node;
+}
+function paintAssistant(node, m, agent) {
+  const activity = node.querySelector('.live-activity'), box = node.querySelector('.trail-box'), list = node.querySelector('.plain-trail');
+  const answer = node.querySelector('.answer'), foot = node.querySelector('.msg-foot'), chips = node.querySelector('.msg-chips');
+  const trail = Array.isArray(m.trail) ? m.trail : [];
+  node.setAttribute('aria-busy', String(m.status === 'pending'));
+  list.replaceChildren(...trail.map(trailItem));
+  box.hidden = !trail.length;
+  box.querySelector('summary').textContent = 'What the assistant did · ' + plural(trail.length, 'step');
+  box.open = m.status === 'pending' && trail.length > 0;
+  activity.className = 'live-activity' + (m.status === 'pending' ? ' pending' : '');
+  activity.textContent = m.status === 'pending' ? 'Working on your question…' : m.status === 'stopped' ? (m.error || 'Stopped before an answer arrived.') : m.status === 'error' ? 'The assistant could not complete this answer.' : '';
+  activity.hidden = !activity.textContent;
+  if (m.status === 'final') { answer.innerHTML = markdown(m.content); answer.hidden = false; }
+  else if (m.status === 'error') { answer.innerHTML = '<p class="status fail">' + esc(m.error || 'An unexpected error occurred.') + '</p>'; answer.hidden = false; }
+  else { answer.innerHTML = ''; answer.hidden = true; }
+  chips.innerHTML = m.status === 'final' ? confidenceChip(m.confidence) + (agent === 'governed' ? layerChip(m.layer_confidence) : '') : '';
+  const spend = spendLabel({cost_usd: m.cost_usd});
+  foot.textContent = m.status === 'final' ? plural(m.steps ?? 0, 'step') + (spend ? ' · ' + spend + ' API credits' : '') : '';
+  foot.hidden = !foot.textContent;
+}
+function renderThread() {
+  const thread = $('thread'), agent = active()?.agent || 'governed';
+  thread.querySelectorAll('.msg').forEach(n => n.remove());
+  $('welcome').hidden = messages.length > 0;
+  messages.forEach(m => thread.appendChild(messageNode(m, agent)));
+  scrollToEnd();
+}
+
+// --- Plain-language trail. Tool calls are narrated for a reader who has
+// never heard of a resolver; the raw call stays in the tooltip.
+function humanMetric(id) {
+  const words = id.replace(/^metrics\//, '').split('-').filter(Boolean).map(w => (/^(usd|fp|fx|ytd|pd|fy)$/i.test(w) ? w.toUpperCase() : w));
+  const text = words.join(' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+function describeToolCall(tool, argsJSON) {
+  let a = {};
+  try { const parsed = JSON.parse(argsJSON || '{}'); if (parsed && typeof parsed === 'object') a = parsed; } catch { /* the raw text stays in the tooltip */ }
+  const quoted = v => '“' + String(v ?? '…') + '”';
+  switch (tool) {
+    case 'resolve': return 'Looking up what ' + quoted(a.term) + ' means in the governed definitions';
+    case 'ambiguity_rule': return 'Checking the agreed reading for the ambiguous term ' + quoted(a.term);
+    case 'security_rules': return 'Checking the disclosure rules before answering';
+    case 'compute': {
+      const metric = typeof a.metric === 'string' && a.metric.startsWith('metrics/') ? humanMetric(a.metric) : quoted(a.metric);
+      let when = a.fiscal_year ? 'FY' + a.fiscal_year : 'the requested period';
+      if (a.fiscal_period) when += a.ytd ? ', through period ' + a.fiscal_period + ' (year to date)' : ', period ' + a.fiscal_period;
+      const currency = a.currency ? ' in ' + String(a.currency).toUpperCase() : '';
+      const scope = a.trade_scope === 'trade' ? ' (external market only)' : a.trade_scope === 'operational' ? ' (operational view)' : '';
+      return 'Running the approved calculation for ' + metric + ' · ' + when + currency + scope;
+    }
+    case 'run_sql': return 'Querying the bookings data directly';
+    default: return 'Using the ' + String(tool || 'unknown') + ' tool';
+  }
+}
+
+// --- Header, composer and the agent lock.
+function syncHeader() {
+  const c = active();
+  $('thread-title').textContent = c ? c.title : 'New chat';
+  document.title = (c ? c.title + ' · ' : '') + 'Averio Assistant';
+  const badge = $('thread-agent');
+  badge.hidden = !c;
+  if (c) { badge.textContent = agentLabel(c.agent); badge.className = 'pill agent-badge ' + c.agent; }
+  // The agent is chosen before the first message and fixed for the chat,
+  // so a history is always one agent's own answers.
+  document.querySelectorAll('#agent-switch input').forEach(r => { r.disabled = !!c || pending; if (c) r.checked = r.value === c.agent; });
+  $('agent-lock').hidden = !c;
+}
+function syncComposer() {
+  const ready = CONFIG?.live_ready === true, needCode = CONFIG?.access_required === true && !accessCode;
+  const value = $('prompt').value;
+  $('prompt').maxLength = maxChars();
+  $('prompt-count').textContent = value.length + ' / ' + maxChars();
+  const usable = ready && !needCode;
+  $('prompt').disabled = !usable;
+  $('send').disabled = !usable || pending || !value.trim();
+  $('send').hidden = pending; $('stop').hidden = !pending;
+  // The code modal covers the chat until a code the server accepts is in
+  // hand; focus lands in it only on the transition, not on every sync.
+  const modal = $('access-modal');
+  if (needCode && modal.hidden) { modal.hidden = false; $('access-input').focus(); }
+  else if (!needCode) modal.hidden = true;
+  // A remembered code is otherwise invisible; say so, and offer a way to
+  // swap it without waiting for the server to refuse the old one.
+  $('access-state').hidden = CONFIG?.access_required !== true;
+  $('access-state-text').textContent = accessCode ? 'Access code saved in this browser' : 'Access code needed';
+  $('access-change').textContent = accessCode ? 'Change' : 'Enter';
+  const note = $('setup-notice');
+  note.textContent = CONFIG === null ? '' : CONFIG.error ? 'The server could not be reached: ' + CONFIG.error : !ready ? 'Live answers are not available on this server yet: it needs the bookings database and an API key.' : needCode ? 'Enter the access code to start.' : '';
+  note.className = 'setup-notice' + (CONFIG && (CONFIG.error || !ready) ? ' warn' : '');
+  note.hidden = !note.textContent;
+  $('live-badge').textContent = CONFIG === null ? 'Checking…' : CONFIG.error ? 'Live · unavailable' : ready ? 'Live · ready' : 'Live · setup required';
+  syncHeader();
+}
+const prompt = $('prompt');
+function autosize() { prompt.style.height = 'auto'; prompt.style.height = Math.min(prompt.scrollHeight || 0, 200) + 'px'; }
+prompt.addEventListener('input', () => { autosize(); syncComposer(); });
+prompt.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); } });
+$('composer').addEventListener('submit', event => { event.preventDefault(); send(); });
+$('stop').addEventListener('click', abortRun);
+function abortRun() { if (!pending) return; stopped = true; controller?.abort(); }
+// Ask the server whether a code is accepted, without spending anything:
+// true / false for accepted / refused, an Error for anything else.
+async function checkAccess(code) {
+  const response = await fetch('/api/access', {headers: withAccess({'Accept': 'application/json'}, code)});
+  if (response.ok) return true;
+  if (response.status === 401) return false;
+  let detail; try { const body = await response.json(); detail = typeof body.detail === 'string' ? body.detail : ''; } catch { /* generic message below */ }
+  throw new Error(detail || 'HTTP ' + response.status);
+}
+function accessError(text) { $('access-error').textContent = text; $('access-error').hidden = !text; }
+let checkingAccess = false;
+$('access-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const code = $('access-input').value.trim(); if (!code || checkingAccess) return;
+  // The code is verified with the server BEFORE it is remembered: a wrong
+  // one is refused here, in the modal, not at the first question.
+  checkingAccess = true; $('access-submit').disabled = true; $('access-submit').textContent = 'Checking…'; accessError('');
+  try {
+    if (await checkAccess(code)) {
+      accessCode = code; write('access', code);
+      $('access-input').value = '';
+      syncComposer(); prompt.focus();
+    } else { accessError('That code was not accepted. Try again.'); $('access-input').select(); }
+  } catch (error) { accessError('The code could not be checked: ' + error.message); }
+  finally { checkingAccess = false; $('access-submit').disabled = false; $('access-submit').textContent = 'Continue'; }
+});
+// While the modal is up it is the whole page: Tab cycles inside it.
+$('access-modal').addEventListener('keydown', event => {
+  if (event.key !== 'Tab') return;
+  const items = [$('access-input'), $('access-submit')], at = items.indexOf(document.activeElement);
+  event.preventDefault();
+  items[(at + (event.shiftKey ? -1 : 1) + items.length) % items.length].focus();
+});
+$('access-change').addEventListener('click', () => {
+  accessCode = ''; erase('access');
+  if (isMobile()) setDrawer(false);
+  accessError('');
+  syncComposer(); $('access-input').focus();
+});
+
+// --- Opening, creating and switching chats. A run in flight is stopped when
+// the visitor moves on (the message is marked stopped, never left spinning).
+function newChat(focus = true) {
+  abortRun();
+  activeId = null; messages = []; write('active', '');
+  renderThread(); renderList(); syncComposer();
+  prompt.value = ''; autosize();
+  if (isMobile()) setDrawer(false);
+  if (focus) prompt.focus();
+}
+function openChat(id) {
+  if (id === activeId || !chatOf(id)) return;
+  abortRun();
+  activeId = id;
+  const stored = read('chat.' + id, null);
+  messages = stored && Array.isArray(stored.messages) ? stored.messages.filter(m => m && (m.role === 'user' || m.role === 'assistant')) : [];
+  write('active', id);
+  renderThread(); renderList(); syncComposer();
+  prompt.focus();
+}
+// Earlier turns the model will see again: completed pairs only. Errors and
+// stopped turns are skipped, and the stored confidence rides along so the
+// server can restore the answer's last line (see trim_history).
+function historyFor(msgs) {
+  const out = [];
+  for (let i = 0; i + 1 < msgs.length; i++) {
+    const u = msgs[i], a = msgs[i + 1];
+    if (u.role === 'user' && a.role === 'assistant' && a.status === 'final') {
+      out.push({role: 'user', content: u.content}, {role: 'assistant', content: a.content, confidence: typeof a.confidence === 'number' ? a.confidence : null});
+      i++;
+    }
+  }
+  return out;
+}
+
+// --- One turn.
+async function send() {
+  const question = prompt.value.trim();
+  if (pending || CONFIG?.live_ready !== true || !question || question.length > maxChars()) return;
+  if (CONFIG.access_required === true && !accessCode) { syncComposer(); $('access-input').focus(); return; }
+  if (!activeId) {
+    const agent = document.querySelector('#agent-switch input:checked')?.value === 'baseline' ? 'baseline' : 'governed';
+    const now = Date.now();
+    activeId = uid(); messages = [];
+    index.push({id: activeId, title: fallbackTitle(question), titleSource: 'fallback', agent, pinned: false, createdAt: now, updatedAt: now});
+    saveIndex(); write('active', activeId);
+  }
+  const chatId = activeId, msgs = messages, entry = active();
+  const history = historyFor(msgs);
+  const user = {id: uid(), role: 'user', content: question, status: 'final'};
+  const reply = {id: uid(), role: 'assistant', content: '', status: 'pending', trail: []};
+  msgs.push(user, reply);
+  const persist = () => { entry.updatedAt = Date.now(); write('chat.' + chatId, {id: chatId, messages: msgs}); saveIndex(); };
+  persist();
+  prompt.value = ''; autosize();
+  $('welcome').hidden = true;
+  $('thread').appendChild(messageNode(user, entry.agent));
+  const node = messageNode(reply, entry.agent); $('thread').appendChild(node);
+  pending = true; stopped = false; controller = new AbortController();
+  renderList(); syncComposer(); scrollToEnd();
+  const list = node.querySelector('.plain-trail'), box = node.querySelector('.trail-box');
+  let done = false, rolledBack = false;
+  const handle = data => {
+    let e; try { e = JSON.parse(data); } catch { throw new Error('The server sent an unreadable event.'); }
+    if (e.type === 'done') { done = true; return true; }
+    if (e.type === 'title') {
+      if (entry.titleSource === 'fallback' && typeof e.title === 'string' && e.title.trim()) { entry.title = e.title.trim().slice(0, TITLE_MAX); entry.titleSource = 'model'; saveIndex(); renderList(); syncHeader(); }
+    } else if (e.type === 'tool_call') {
+      const args = typeof e.arguments === 'string' ? e.arguments : JSON.stringify(e.arguments ?? {});
+      const call = {step: e.step, tool: e.tool, arguments: args.slice(0, TRAIL_ARG_MAX)};
+      reply.trail.push(call); list.appendChild(trailItem(call));
+      box.hidden = false; box.open = true; box.querySelector('summary').textContent = 'What the assistant did · ' + plural(reply.trail.length, 'step');
+      persist(); scrollToEnd();
+    } else if (e.type === 'final') {
+      const state = finalAnswerState(e);
+      if (state.complete) Object.assign(reply, {status: 'final', content: e.answer, confidence: typeof e.confidence === 'number' ? e.confidence : null, layer_confidence: e.layer_confidence ?? null, steps: e.steps ?? null, cost_usd: e.usage?.cost_usd ?? null});
+      else Object.assign(reply, {status: 'error', steps: e.steps ?? null, cost_usd: e.usage?.cost_usd ?? null, error: state.status === 'budget_exhausted' ? 'The assistant reached its step limit before producing an answer. Try a more specific question.' : 'The model returned no answer. Please try again.'});
+    } else if (e.type === 'error') {
+      Object.assign(reply, {status: 'error', error: e.message || 'An unexpected error occurred.'});
+    }
+    return false;
+  };
+  try {
+    const response = await fetch('/api/chat', {method: 'POST', signal: controller.signal,
+      headers: withAccess({'Content-Type': 'application/json', 'Accept': 'text/event-stream'}, accessCode),
+      body: JSON.stringify({agent: entry.agent, want_title: entry.titleSource === 'fallback', messages: [...history, {role: 'user', content: question}]})});
+    if (response.status === 401) {
+      // The code is missing or no longer accepted: undo this turn, keep the
+      // question in the composer, forget the code and ask for it again.
+      rolledBack = true;
+      msgs.splice(msgs.indexOf(user), 2); node.remove(); $('thread').querySelector('[data-id="' + user.id + '"]')?.remove();
+      if (msgs.length) persist();
+      else { index = index.filter(x => x.id !== chatId); saveIndex(); erase('chat.' + chatId); activeId = null; messages = []; write('active', ''); $('welcome').hidden = false; }
+      accessCode = ''; erase('access');
+      prompt.value = question; autosize();
+      accessError('The access code is no longer accepted. Enter the current one.');
+    } else {
+      if (!response.ok) {
+        let detail; try { const body = await response.json(); detail = typeof body.detail === 'string' ? body.detail : body.error; } catch { /* generic message below */ }
+        throw new Error(detail || 'The request could not start (HTTP ' + response.status + ').');
+      }
+      await readSSE(response, handle);
+      if (reply.status === 'pending') Object.assign(reply, {status: 'error', error: 'The connection ended before an answer arrived. Please try again.'});
+    }
+  } catch (error) {
+    if (stopped) Object.assign(reply, {status: 'stopped', error: 'Stopped before an answer arrived. A request already sent to the model may still finish on the server.'});
+    else Object.assign(reply, {status: 'error', error: error.message || 'The request was interrupted. Please try again.'});
+  } finally {
+    pending = false; controller = null;
+    if (!rolledBack) { paintAssistant(node, reply, entry.agent); persist(); }
+    renderList(); syncComposer(); scrollToEnd();
+    if (rolledBack) $('access-input').focus(); else if (activeId === chatId) prompt.focus();
+  }
+}
+function fallbackTitle(question) {
+  const text = question.replace(/\s+/g, ' ').trim();
+  if (text.length <= 40) return text;
+  const cut = text.slice(0, 40);
+  return (cut.includes(' ') ? cut.slice(0, cut.lastIndexOf(' ')) : cut).replace(/[\s,;:.-]+$/, '') + '…';
+}
+
+// --- Server facts and suggested questions.
+async function loadConfig() {
+  try { CONFIG = await getJSON('/api/config'); $('side-model').textContent = 'Model: ' + (CONFIG.model || 'server default'); }
+  catch (error) { CONFIG = {live_ready: false, error: error.message}; }
+  // A remembered code can go stale (the server's code changed). Check it
+  // once now, so the visitor is asked immediately rather than after a
+  // refused question. A server hiccup keeps the code: a refused question
+  // still rolls back and asks.
+  if (CONFIG.access_required === true && accessCode) {
+    try {
+      if (!(await checkAccess(accessCode))) { accessCode = ''; erase('access'); accessError('The saved access code is no longer accepted. Enter the current one.'); }
+    } catch { /* keep the code */ }
+  }
+  syncComposer();
+}
+async function loadCurated() {
+  try { const list = await getJSON('/api/curated'); curated = (Array.isArray(list) ? list : []).filter(i => i && typeof i.question === 'string').slice(0, 6); }
+  catch { curated = []; }
+  $('suggestions').innerHTML = curated.map((q, i) => '<button type="button" class="btn" data-suggest="' + i + '">' + esc(q.question) + '</button>').join('');
+  $('suggestions').hidden = !curated.length;
+}
+$('suggestions').addEventListener('click', event => {
+  const button = event.target.closest('[data-suggest]'); if (!button) return;
+  const pick = curated[Number(button.dataset.suggest)]; if (!pick) return;
+  prompt.value = pick.question.slice(0, maxChars()); autosize(); syncComposer(); send();
+});
+
+// --- Sidebar controls.
+$('sidebar-close').addEventListener('click', () => setSidebar(false));
+$('sidebar-open').addEventListener('click', () => (isMobile() ? setDrawer(app.dataset.drawer !== 'open') : setSidebar(true)));
+$('new-chat').addEventListener('click', () => newChat());
+$('topbar-new-chat').addEventListener('click', () => newChat());
+$('drawer-backdrop').addEventListener('click', () => setDrawer(false));
+if (typeof mobileQuery.addEventListener === 'function') mobileQuery.addEventListener('change', () => { setDrawer(false); applySidebar(); });
+
+// --- Boot. A reload mid-answer leaves nothing spinning: pending turns are
+// marked stopped before anything renders.
+for (const entry of index) {
+  const chat = read('chat.' + entry.id, null);
+  if (!chat || !Array.isArray(chat.messages) || !chat.messages.some(m => m && m.status === 'pending')) continue;
+  chat.messages.forEach(m => { if (m && m.status === 'pending') { m.status = 'stopped'; m.error = 'Interrupted before an answer arrived.'; } });
+  write('chat.' + entry.id, chat);
+}
+applySidebar();
+app.dataset.drawer = 'closed';
+const remembered = read('active', '');
+if (typeof remembered === 'string' && chatOf(remembered)) openChat(remembered); else newChat(false);
+Promise.allSettled([loadConfig(), loadCurated()]);
+})();
+</script>
+<!-- /variant -->
 </body>
 </html>

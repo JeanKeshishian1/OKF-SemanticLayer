@@ -224,7 +224,8 @@ class AgentRunner:
         self.client = client
         self.model = model or model_name()
 
-    def ask(self, question: str, on_event=None) -> dict:
+    def ask(self, question: str, on_event=None, *,
+            history: list[dict] | None = None) -> dict:
         """Run one question to completion.
 
         ``on_event``, when given, receives each transcript entry the moment
@@ -232,11 +233,29 @@ class AgentRunner:
         tool calls as they fire). It is observation only: both agents get
         the identical hook, it never alters the loop, and the returned
         transcript is byte-identical with or without it.
+
+        ``history``, when given, is the earlier turns of a conversation:
+        plain ``{"role": "user"|"assistant", "content": str}`` dicts placed
+        between the system prompt and the new question, so a follow-up
+        like "and the same for FY2025?" can resolve. Keyword-only and
+        default-off on purpose: the EVAL never passes it - a single
+        question is the experiment's unit, and every recorded result was
+        produced from exactly ``[system, question]``. It is text-only by
+        design: earlier tool calls and their results are never replayed,
+        so each turn re-derives its figures through the tools, and the
+        governed mandate stays binding on every turn of a chat rather
+        than only the first. Both agents accept it identically.
         """
         if self.client is None:  # constructed offline (tests, prompt checks)
             raise RuntimeError(f"agent {self.name!r} has no client attached")
-        messages: list[dict] = [{"role": "system", "content": self.system_prompt},
-                                {"role": "user", "content": question}]
+        messages: list[dict] = [{"role": "system", "content": self.system_prompt}]
+        for turn in history or ():
+            # A foreign role (e.g. "tool") is a caller bug, and dropping it
+            # silently would hide a corrupted conversation - refuse loudly.
+            if turn.get("role") not in ("user", "assistant"):
+                raise ValueError(f"history turns must be user/assistant, got {turn.get('role')!r}")
+            messages.append({"role": turn["role"], "content": str(turn.get("content", ""))})
+        messages.append({"role": "user", "content": question})
         transcript: list[dict] = []
 
         def record(entry: dict) -> None:

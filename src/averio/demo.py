@@ -641,7 +641,14 @@ def main() -> None:
     # Flushed so it precedes uvicorn's own log lines when stdout is a pipe
     # (a platform log viewer), where it would otherwise surface at exit.
     print(f"Averio {requested} variant -> http://{host}:{port}", flush=True)
-    uvicorn.run(app, host=host, port=port)
+    # One process, stated explicitly. Left unset, uvicorn takes its worker
+    # count from WEB_CONCURRENCY, which Heroku's Python buildpack exports on
+    # every dyno (2 on 512 MB) - and uvicorn refuses to run an app *object*
+    # with more than one worker, so the dyno exited at boot (H10) with a
+    # message about import strings. This server is single-process by
+    # design: each request runs its agents on its own threads and nothing
+    # is shared, so a second process would only double the memory footprint.
+    uvicorn.run(app, host=host, port=port, workers=1)
 
 
 if __name__ == "__main__":

@@ -340,14 +340,21 @@ def test_main_serves_from_the_environment(monkeypatch, capsys):
     environment, and a public bind without an access code does not start
     unless an open endpoint is asked for explicitly."""
     captured = {}
-    monkeypatch.setattr("uvicorn.run",
-                        lambda app, host, port: captured.update(host=host, port=port))
+
+    def fake_run(app, host, port, workers):
+        captured.update(host=host, port=port, workers=workers)
+
+    monkeypatch.setattr("uvicorn.run", fake_run)
     # Keep the developer's real .env out of the test process.
     monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: False)
     monkeypatch.delenv("AVERIO_ALLOW_OPEN", raising=False)
     monkeypatch.setenv("AVERIO_VARIANT", "enduser")
     monkeypatch.setenv("HOST", "0.0.0.0")
     monkeypatch.setenv("PORT", "8123")
+    # Heroku's Python buildpack exports WEB_CONCURRENCY on every dyno. The
+    # worker count must be pinned to one regardless: uvicorn refuses an app
+    # object with more workers, which crashed the first hosted boot.
+    monkeypatch.setenv("WEB_CONCURRENCY", "2")
     # Forgetting the code on a host must fail, not quietly expose credits.
     with pytest.raises(SystemExit):
         demo.main()
@@ -355,7 +362,7 @@ def test_main_serves_from_the_environment(monkeypatch, capsys):
     # An open endpoint can be asked for; it still warns.
     monkeypatch.setenv("AVERIO_ALLOW_OPEN", "1")
     demo.main()
-    assert captured == {"host": "0.0.0.0", "port": 8123}
+    assert captured == {"host": "0.0.0.0", "port": 8123, "workers": 1}
     out, err = capsys.readouterr()
     assert "enduser" in out and "http://0.0.0.0:8123" in out
     assert "WARNING" in err and "AVERIO_ACCESS_CODE" in err

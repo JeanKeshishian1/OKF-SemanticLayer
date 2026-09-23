@@ -190,8 +190,11 @@ vars differ. The repo root carries the whole deployment contract, and
 
 `PORT` is injected by Heroku. Its router wants a first byte within 30 seconds and
 some byte every 55; the streams send headers at once and a keepalive every 15, so
-nothing changes for hosting. A refreshed `eval/results.json` reaches the hosted
-demo only through a commit to `master`: the build is the deployment.
+nothing changes for hosting. The server pins uvicorn to one worker itself: the
+buildpack exports `WEB_CONCURRENCY=2` on a 512 MB dyno, and uvicorn would otherwise
+read that as a worker count and refuse to start with an app object. A refreshed
+`eval/results.json` reaches the hosted demo only through a commit to `master`: the
+build is the deployment.
 
 ## Repository map
 

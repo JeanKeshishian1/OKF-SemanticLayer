@@ -686,7 +686,7 @@ function confidenceChip(value) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '<span class="conf conf-none" title="The model did not state a confidence for this answer">Model: not stated</span>';
   const v = Math.max(0, Math.min(100, Math.round(value)));
   const level = v >= 80 ? ['high', 'High'] : v >= 50 ? ['medium', 'Medium'] : ['low', 'Low'];
-  return '<span class="conf conf-' + level[0] + '" title="Self-reported by the model; not a guarantee of correctness">Model: ' + level[1] + ' · ' + v + '%</span>';
+  return '<span class="conf conf-' + level[0] + '" title="Self-reported by the model; not a guarantee of correctness">Confidence: ' + level[1] + ' · ' + v + '%</span>';
 }
 // The governed side's calculated counterpart: what the layer's own signals
 // prove (attestation receipts, trust tiers, staleness) - derived by the

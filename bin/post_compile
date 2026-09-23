@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Heroku build hook (classic Python buildpack): runs in the build directory
+# after `pip install -r requirements.txt` and before the slug is sealed, so
+# what it writes ships in the slug. It builds data/averio.duckdb - the
+# gitignored, deterministic database the live endpoints query - once per
+# deploy instead of on every dyno restart, and a failed quality assert fails
+# the BUILD (the previous release keeps serving) rather than a boot.
+#
+# DEFAULT flags only. The generator also rewrites eval/ground_truth.json, the
+# eval answer key: with the pinned defaults that is byte-identical to the
+# tracked file; with any other flag the slug would carry a database that
+# disagrees with every recorded result the demo shows.
+#
+# PYTHONPATH points at src/ directly: the editable install's path is rewritten
+# from the build directory to /app at a point the buildpack does not promise
+# relative to this hook, and importing from source depends on neither.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+echo "-----> Generating data/averio.duckdb with the pinned defaults"
+PYTHONPATH="$PWD/src" python -m averio.generate_data

@@ -1,0 +1,5 @@
+# Heroku's Python buildpack installs from this file (a bare pyproject.toml is
+# not detected). Editable, so the package runs from /app/src and averio.demo
+# resolves the repo root (eval/, data/, bundle/) to /app by itself; the demo
+# extra carries fastapi + uvicorn. Versions and floors live in pyproject.toml.
+-e .[demo]

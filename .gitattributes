@@ -1,0 +1,6 @@
+# Read by Heroku's Linux build or dyno, where a CR breaks the shebang, the
+# Procfile command, or the version parse. Kept LF in every checkout.
+bin/post_compile text eol=lf
+Procfile         text eol=lf
+.python-version  text eol=lf
+requirements.txt text eol=lf

@@ -99,7 +99,7 @@ byte-identical across runs. The generator *hard-asserts* its own experimental
 validity: every trap population must be non-empty and every naive variant must move
 its metric by ≥1%, or generation fails loudly.
 
-The test suite (81 tests, offline, ~4s) guards the invariants that make the numbers
+The test suite (85 tests, offline, ~4s) guards the invariants that make the numbers
 meaningful — bundle SQL ≡ harness SQL, the attester's independent fiscal calendar ≡
 the executor's, the baseline prompt contains no governance vocabulary, and the
 scoring tolerance stays below the smallest trap separation.
@@ -167,6 +167,31 @@ governed agent re-consults the layer on every turn. Tool calls are narrated in
 plain language while the agent works. Behind a proxy, keep response buffering
 off (the stream sets the usual headers) and idle timeouts above the 15-second
 keepalive interval.
+
+### Deploying to Heroku
+
+Two Heroku apps deploy from the same `master`, one per face; only their config
+vars differ. The repo root carries the whole deployment contract, and
+`tests/test_deploy_manifest.py` guards it:
+
+| File | Role |
+|---|---|
+| `Procfile` | `web: HOST=0.0.0.0 python -m averio.demo` — one web process. `HOST` is a property of the platform, identical for both apps, so it lives here rather than in per-app config |
+| `requirements.txt` | `-e .[demo]` — the buildpack does not detect a bare `pyproject.toml`. Editable, so `averio.demo` resolves the repo root to `/app` by itself and `AVERIO_REPO` is not needed |
+| `.python-version` | The interpreter Heroku builds with (major.minor, so patch releases arrive without a commit) |
+| `bin/post_compile` | Build hook: generates the gitignored `data/averio.duckdb` into the slug with the pinned defaults, once per deploy. Nothing is generated at boot, and a generator assert fails the build rather than the running app |
+| `.gitattributes` | Keeps those files LF on a Windows checkout; a CR or BOM in them breaks the Linux build with a misleading error |
+
+| Config var | Jury demo | End-user assistant |
+|---|---|---|
+| `AVERIO_VARIANT` | `demo` | `enduser` |
+| `AVERIO_ACCESS_CODE` | one code | a different code |
+| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | as in `.env` | as in `.env` |
+
+`PORT` is injected by Heroku. Its router wants a first byte within 30 seconds and
+some byte every 55; the streams send headers at once and a keepalive every 15, so
+nothing changes for hosting. A refreshed `eval/results.json` reaches the hosted
+demo only through a commit to `master`: the build is the deployment.
 
 ## Repository map
 

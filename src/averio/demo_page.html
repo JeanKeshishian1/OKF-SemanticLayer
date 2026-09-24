@@ -36,6 +36,10 @@ button, input, select, textarea { font: inherit; }
 button, summary, select { cursor: pointer; }
 button, a, input, select, textarea, summary { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+/* Text fields: the ring hugs the field's own edge. The floating 4px ring is
+   the convention for clickable controls; on a field it reached 7px into
+   the neighbouring row and overlapped the assistant's Send button. */
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline-width: 2px; outline-offset: 0; }
 [hidden] { display: none !important; }
 a { color: var(--gov); text-underline-offset: 3px; }
 button { border: 0; }
@@ -55,7 +59,14 @@ code { font: .85em/1.5 Consolas, "Courier New", monospace; background: var(--sof
 .nav-label { color: #9096a8; text-transform: uppercase; letter-spacing: 1.6px; font-size: 10px; font-weight: 700; margin: 44px 12px 12px; }
 nav { display: flex; flex-direction: column; gap: 7px; }
 nav a { color: #bec3d1; text-decoration: none; padding: 10px 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; font-size: 14px; }
-nav a:hover, nav a[aria-current="location"] { color: #f5f5f7; background: #1b1c26; }
+nav a[aria-current="location"] { color: #f5f5f7; background: #1b1c26; }
+/* Hover styling only where a pointer can hover. A touch screen keeps
+   :hover on the LAST TAPPED element until the next tap, so a tapped link
+   stayed lit while the scroll spy moved the current-section highlight on -
+   two highlighted links at once (seen on a Samsung A54). Every :hover rule
+   on both faces sits under this query for the same reason. */
+@media (hover: hover) { nav a:hover { color: #f5f5f7; background: #1b1c26; } }
+.nav-short { display: none; }
 nav a:focus-visible, .brand:focus-visible { outline-color: #9bdcca; }
 nav .nav-icon { width: 20px; font-size: 18px; text-align: center; color: #a9b5dc; }
 .side-note { margin-top: auto; padding: 18px 2px 0; color: #a8adbd; border-top: 1px solid #292a33; font-size: 12px; }
@@ -76,9 +87,11 @@ section { margin-bottom: 50px; }
 .hero h2 em { color: var(--gov); font-style: normal; }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 25px; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 43px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 16px; background: var(--surface); color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 650; }
-.btn:hover:not(:disabled) { background: var(--soft); }
 .btn.primary { background: linear-gradient(110deg, #5ca6c6, #8380c5); border-color: #9aa7d4; color: #08090b; }
-.btn.primary:hover:not(:disabled) { background: linear-gradient(110deg, #90d0e6, #b9b2ea); }
+@media (hover: hover) {
+  .btn:hover:not(:disabled) { background: var(--soft); }
+  .btn.primary:hover:not(:disabled) { background: linear-gradient(110deg, #90d0e6, #b9b2ea); }
+}
 .hero-visual { background: #12151c; padding: 25px; border: 1px solid #313541; border-radius: 20px; position: relative; }
 .flow-label { font-size: 10px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 .flow-question { background: var(--surface); border: 1px solid var(--line); padding: 15px 16px; border-radius: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 5px 14px #00000030; }
@@ -125,7 +138,7 @@ section { margin-bottom: 50px; }
 .start-label { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
 .featured { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 25px; }
 .feature { text-align: left; padding: 19px; position: relative; transition: border-color .15s, transform .15s; }
-.feature:hover { border-color: #7789b3; transform: translateY(-2px); }
+@media (hover: hover) { .feature:hover { border-color: #7789b3; transform: translateY(-2px); } }
 .feature small { display: block; color: var(--gov); font-size: 10px; text-transform: uppercase; letter-spacing: .7px; font-weight: 700; margin-bottom: 9px; }
 .feature strong { display: block; font-size: 14px; font-weight: 600; line-height: 1.5; padding-right: 10px; }
 .feature span { display: block; color: var(--muted); font-size: 11px; margin-top: 13px; }
@@ -150,7 +163,7 @@ input::placeholder, textarea::placeholder { color: #a5a8b9; opacity: 1; }
 .question > summary::-webkit-details-marker { display: none; }
 .question > summary::before { content: "+"; color: var(--gov); font-size: 23px; font-weight: 400; }
 .question[open] > summary::before { content: "−"; }
-.question > summary:hover { background: #1c1d25; }
+@media (hover: hover) { .question > summary:hover { background: #1c1d25; } }
 .question[open] > summary { background: #13171e; }
 .question-title { font-size: 14px; font-weight: 600; }
 .question-meta { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; font-weight: 400; }
@@ -278,18 +291,25 @@ textarea { resize: vertical; min-height: 95px; }
 @media (max-width: 700px) {
   /* Phones: the page is ~9,900px tall here and the section links used to
      scroll away with the brand, leaving no way back from the question list.
-     The header sticks with a NEGATIVE top equal to the brand block
-     (14px padding + 36px brand + 12px margin), so once the brand has
-     scrolled off exactly the row of links stays pinned (~46px) and the
-     scroll spy keeps the current one highlighted. The row is one
-     non-wrapping strip that scrolls sideways on the narrowest phones;
-     anchor jumps land below it (scroll-padding-top). */
-  html { scroll-padding-top: 56px; }
-  .sidebar { display: block; position: sticky; top: -62px; z-index: 10; padding: 14px 20px 10px; border-right: 0; border-bottom: 1px solid #272730; }
-  .brand { height: 36px; line-height: 1.25; margin-bottom: 12px; }
-  nav { flex-wrap: nowrap; overflow-x: auto; gap: 4px; scrollbar-width: none; }
+     The header sticks with a NEGATIVE top equal to the distance from its
+     edge to the nav row, so once the brand has scrolled off the row of
+     links stays pinned and the scroll spy keeps the current one
+     highlighted. The -56px here (14px padding + 36px brand + 6px margin)
+     is only the default: the script measures the real distance
+     (pinNavStrip), because a hand-computed constant drifted by a few
+     pixels on a real phone and clipped the links. The nav's own 6px top
+     padding is slack - an overshoot clips dark padding, never a link.
+     Short labels (.nav-short) let all four links share the strip down to
+     320px; overflow-x stays as the safety net; anchor jumps land below the
+     strip (scroll-padding-top). */
+  html { scroll-padding-top: 60px; }
+  .sidebar { display: block; position: sticky; top: -56px; z-index: 10; padding: 14px 20px 10px; border-right: 0; border-bottom: 1px solid #272730; }
+  .brand { height: 36px; line-height: 1.25; margin-bottom: 6px; }
+  nav { flex-wrap: nowrap; overflow-x: auto; gap: 2px; padding-top: 6px; scrollbar-width: none; }
   nav::-webkit-scrollbar { display: none; }
-  nav a { flex: 0 0 auto; white-space: nowrap; min-height: 36px; padding: 8px; font-size: 12px; }
+  nav a { flex: 1 1 auto; justify-content: center; white-space: nowrap; min-height: 36px; padding: 8px 5px; font-size: 12px; }
+  .nav-full { display: none; }
+  .nav-short { display: inline; }
   /* 10px text and a 17px-tall link were unreadable and un-tappable. */
   .topbar { padding: 8px 20px; font-size: 12px; }
   .topbar a { display: inline-block; padding: 9px 0; white-space: nowrap; }
@@ -394,13 +414,14 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
 .chat-sidebar .brand > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-sidebar .brand-mark { height: 34px; width: 34px; font-size: 19px; flex-shrink: 0; background: linear-gradient(145deg, #11252e, #252036); color: #bbd9ef; }
 .icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: transparent; color: #bec3d1; font-size: 20px; line-height: 1; border: 1px solid transparent; flex-shrink: 0; }
-.icon-btn:hover { background: #1b1c26; color: var(--ink); }
+@media (hover: hover) { .icon-btn:hover { background: #1b1c26; color: var(--ink); } }   /* see the nav a:hover note: touch keeps :hover on the last tap */
 .new-chat { margin: 16px 4px 4px; min-height: 40px; }
 .chat-list { display: block; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 2px 8px; }
 .chat-list .nav-label { margin: 14px 10px 6px; }
 .chat-rows { list-style: none; margin: 0; padding: 0; }
 .chat-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-radius: 8px; }
-.chat-row:hover, .chat-row:focus-within, .chat-row.active { background: #1b1c26; }
+.chat-row:focus-within, .chat-row.active { background: #1b1c26; }
+@media (hover: hover) { .chat-row:hover { background: #1b1c26; } }
 .chat-open { display: flex; align-items: center; gap: 9px; min-width: 0; width: 100%; text-align: left; background: transparent; color: #bec3d1; padding: 9px 4px 9px 10px; border-radius: 8px; font-size: 13px; }
 .chat-row.active .chat-open { color: var(--ink); }
 .agent-dot { width: 8px; height: 8px; border-radius: 3px; background: currentColor; flex-shrink: 0; }
@@ -410,7 +431,8 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
 @media (hover: none) { .row-menu-btn { opacity: 1; } }
 .row-menu { position: absolute; right: 6px; top: calc(100% - 4px); z-index: 20; min-width: 150px; display: flex; flex-direction: column; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 24px #0008; }
 .row-menu button { text-align: left; background: transparent; color: var(--ink); padding: 8px 10px; border-radius: 6px; font-size: 13px; }
-.row-menu button:hover, .row-menu button:focus-visible { background: var(--soft); }
+.row-menu button:focus-visible { background: var(--soft); }
+@media (hover: hover) { .row-menu button:hover { background: var(--soft); } }
 .row-menu button.danger { color: var(--bad); }
 .rename-input { min-height: 32px; padding: 4px 8px; font-size: 13px; margin: 4px 4px 4px 6px; width: calc(100% - 10px); }
 .confirm-delete { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px 6px 10px; font-size: 12px; color: var(--muted); }
@@ -547,10 +569,13 @@ body.scroll-locked { position: fixed; left: 0; right: 0; overflow: hidden; }
   <a class="brand" href="#live"><span class="brand-mark" aria-hidden="true">◈</span><span>OKF Explorer<small>AVERIO · SEMANTIC LAYER</small></span></a>
   <div class="nav-label">Explore the project</div>
   <nav aria-label="Main navigation">
-    <a href="#live" aria-current="location"><span class="nav-icon" aria-hidden="true">↗</span>Compare answers</a>
-    <a href="#overview"><span class="nav-icon" aria-hidden="true">◫</span>Overview</a>
-    <a href="#examples"><span class="nav-icon" aria-hidden="true">≡</span>Explore questions</a>
-    <a href="#how-it-works"><span class="nav-icon" aria-hidden="true">◇</span>How it works</a>
+    <!-- Two labels per link, one displayed at a time: the full one on laptops
+         and tablets, the short one on phones, where all four must share a
+         ~320px strip without scrolling sideways. -->
+    <a href="#live" aria-current="location"><span class="nav-icon" aria-hidden="true">↗</span><span class="nav-full">Compare answers</span><span class="nav-short">Compare</span></a>
+    <a href="#overview"><span class="nav-icon" aria-hidden="true">◫</span><span class="nav-full">Overview</span><span class="nav-short">Overview</span></a>
+    <a href="#examples"><span class="nav-icon" aria-hidden="true">≡</span><span class="nav-full">Explore questions</span><span class="nav-short">Questions</span></a>
+    <a href="#how-it-works"><span class="nav-icon" aria-hidden="true">◇</span><span class="nav-full">How it works</span><span class="nav-short">How it works</span></a>
   </nav>
   <div class="side-note"><strong>A good place to start</strong><p>Explore a recorded question.<br>Compare the two answers.<br>See which business rule matters.</p></div>
 </aside>
@@ -1180,15 +1205,28 @@ function syncNav() {
   else for (const section of SECTIONS) if (section.getBoundingClientRect().top <= 140) active = section.id;
   highlightNav(active);
 }
+// Phones pin the section links as a strip (CSS: .sidebar { position: sticky;
+// top: -N }). N must be the exact distance from the header's edge to the
+// nav row; a hand-computed constant drifted by a few pixels on a real phone
+// (Samsung A54) and clipped the links. Measure it: offsetTop is relative to
+// the sticky - hence positioned - sidebar. Re-measured on resize, which
+// Android also fires when its URL bar hides. The desktop sidebar is fixed,
+// not sticky, so the inline top is cleared there.
+const STRIP_QUERY = window.matchMedia('(max-width: 700px)');
+function pinNavStrip() {
+  const sidebar = document.querySelector('.sidebar'), nav = sidebar && sidebar.querySelector('nav');
+  if (!nav) return;
+  sidebar.style.top = STRIP_QUERY.matches === true ? -nav.offsetTop + 'px' : '';
+}
 document.addEventListener('scroll', syncNav, {passive: true});
-window.addEventListener('resize', syncNav, {passive: true});
+window.addEventListener('resize', () => { pinNavStrip(); syncNav(); }, {passive: true});
 // Any in-page link (sidebar, top bar, hero buttons, footer) highlights its
 // destination immediately; the scroll spy then keeps it in sync.
 document.querySelectorAll('a[href^="#"]').forEach(link => link.addEventListener('click', () => {
   const id = link.getAttribute('href').slice(1);
   if (document.getElementById(id)?.closest('main')) highlightNav(id);
 }));
-syncNav();
+pinNavStrip(); syncNav();
 Promise.allSettled([loadResults(), loadConfig(), loadCurated()]);
 </script>
 <!-- /variant -->

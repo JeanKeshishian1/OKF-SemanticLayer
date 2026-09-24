@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- interactive-widget: Chrome/Android shrinks the layout viewport when the
+     soft keyboard opens, so the end-user face's sticky composer stays above
+     it instead of behind it. theme-color: without it Android Chrome paints
+     a white address bar over these black pages. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0d0d0d">
 <!-- One page, two faces. The server keeps the regions marked for the face it
      serves (AVERIO_VARIANT) and strips the other's before sending, so a
      browser never receives the other face's markup, styles or scripts.
@@ -128,6 +133,15 @@ section { margin-bottom: 50px; }
 label { display: block; font-size: 12px; font-weight: 650; margin-bottom: 6px; }
 input, select, textarea { border: 1px solid #454653; border-radius: 7px; background: var(--surface); color: var(--ink); padding: 10px 11px; width: 100%; font-size: 13px; min-height: 43px; }
 input::placeholder, textarea::placeholder { color: #a5a8b9; opacity: 1; }
+/* Touch devices (phones and tablets; a laptop with a mouse never matches).
+   Inputs below 16px make iOS Safari zoom the page on focus and leave it
+   zoomed after typing - 16px is the documented threshold, so this size is
+   load-bearing, not a taste choice. Text buttons grow to a finger-sized
+   hit area without changing their look. */
+@media (hover: none) and (pointer: coarse) {
+  input, select, textarea { font-size: 16px; }
+  .text-button { min-height: 36px; }
+}
 .results-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 20px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); }
 .text-button { color: var(--gov); background: transparent; font-size: 12px; font-weight: 650; padding: 6px 0; text-decoration: underline; text-underline-offset: 3px; min-height: 30px; }
 .question { border-bottom: 1px solid var(--line); }
@@ -155,6 +169,12 @@ input::placeholder, textarea::placeholder { color: #a5a8b9; opacity: 1; }
 .conf-medium { color: #f0b57f; background: #33250f; border-color: #614a26; }
 .conf-high { color: #88d6bf; background: #142923; border-color: #2c5347; }
 .conf-none { color: var(--muted); background: var(--soft); border-color: #303139; }
+/* The layer chip is a button: its points breakdown is also the hover
+   tooltip, but hover does not exist on a phone, so a tap (or Enter) opens
+   the same lines inline under the answer heading (toggleChipDetail). */
+.layer-chip { cursor: pointer; }
+.chip-detail { list-style: none; margin: 0 0 10px; padding: 8px 10px; background: var(--soft); border-radius: 8px; font-size: 11px; line-height: 1.6; color: var(--muted); }
+.chip-detail li { margin: 2px 0; }
 .question-detail { padding: 0 20px 23px; background: #13171e; }
 .rule-note { background: #1b252e; padding: 12px 15px; border-radius: 8px; font-size: 12px; margin: 0 0 16px; color: #c0cdd9; }
 .rule-note strong { font-weight: 650; }
@@ -256,12 +276,23 @@ textarea { resize: vertical; min-height: 95px; }
   .explain-step { padding: 19px; }
 }
 @media (max-width: 700px) {
-  html { scroll-padding-top: 14px; }
-  .sidebar { display: block; padding: 17px 20px 12px; }
-  .brand { margin-bottom: 13px; }
-  nav { justify-content: space-between; flex-wrap: wrap; }
-  nav a { padding: 7px 9px; }
-  .topbar { padding: 13px 20px; font-size: 10px; }
+  /* Phones: the page is ~9,900px tall here and the section links used to
+     scroll away with the brand, leaving no way back from the question list.
+     The header sticks with a NEGATIVE top equal to the brand block
+     (14px padding + 36px brand + 12px margin), so once the brand has
+     scrolled off exactly the row of links stays pinned (~46px) and the
+     scroll spy keeps the current one highlighted. The row is one
+     non-wrapping strip that scrolls sideways on the narrowest phones;
+     anchor jumps land below it (scroll-padding-top). */
+  html { scroll-padding-top: 56px; }
+  .sidebar { display: block; position: sticky; top: -62px; z-index: 10; padding: 14px 20px 10px; border-right: 0; border-bottom: 1px solid #272730; }
+  .brand { height: 36px; line-height: 1.25; margin-bottom: 12px; }
+  nav { flex-wrap: nowrap; overflow-x: auto; gap: 4px; scrollbar-width: none; }
+  nav::-webkit-scrollbar { display: none; }
+  nav a { flex: 0 0 auto; white-space: nowrap; min-height: 36px; padding: 8px; font-size: 12px; }
+  /* 10px text and a 17px-tall link were unreadable and un-tappable. */
+  .topbar { padding: 8px 20px; font-size: 12px; }
+  .topbar a { display: inline-block; padding: 9px 0; white-space: nowrap; }
   main { padding: 27px 20px 20px; }
   .hero { grid-template-columns: 1fr; gap: 24px; }
   h1 { font-size: 39px; max-width: 460px; }
@@ -337,7 +368,10 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
   .comparison-heading h1 { font-size: 32px; line-height: 1.17; }
   .comparison-start .live-card { padding: 16px; }
   .mode-bar { gap: 10px; }
-  .comparison-start .answer { max-height: 390px; }
+  /* The panes stack vertically here, so the height cap that keeps them
+     level side by side only creates a nested scroller: a finger landing on
+     the pane scrolls the pane instead of the page. Let the answer flow. */
+  .comparison-start .answer { max-height: none; padding-right: 0; }
   .hero h2 { font-size: 31px; }
   .comparison-start .btn.primary { width: 100%; }
 }
@@ -349,10 +383,12 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
    .sidebar / .shell / bare main rules (fixed 236px sidebar, page margins,
    95px textareas) and only borrows leaf classes - .card, .btn, .pill,
    .answer, .conf*, .agent-name, .live-activity, .evidence, .side-note. */
-.chat-app { display: grid; grid-template-columns: var(--sidebar-w, 280px) minmax(0, 1fr); min-height: 100vh; }
+/* 100svh where supported: 100vh on a phone is the height WITHOUT the
+   browser's toolbars, so an empty chat could scroll by that difference. */
+.chat-app { display: grid; grid-template-columns: var(--sidebar-w, 280px) minmax(0, 1fr); min-height: 100vh; min-height: 100svh; }
 .chat-app[data-sidebar="closed"] { grid-template-columns: minmax(0, 1fr); }
 .chat-app[data-sidebar="closed"] .chat-sidebar { display: none; }
-.chat-sidebar { position: sticky; top: 0; height: 100vh; overflow: hidden; background: var(--nav); border-right: 1px solid #272730; display: flex; flex-direction: column; padding: 16px 12px 14px; min-width: 0; }
+.chat-sidebar { position: sticky; top: 0; height: 100vh; overflow: hidden; overscroll-behavior: contain; background: var(--nav); border-right: 1px solid #272730; display: flex; flex-direction: column; padding: 16px 12px 14px; min-width: 0; }
 .chat-sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 2px 2px 0 6px; }
 .chat-sidebar .brand { font-size: 17px; min-width: 0; margin: 0; }
 .chat-sidebar .brand > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -360,7 +396,7 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
 .icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: transparent; color: #bec3d1; font-size: 20px; line-height: 1; border: 1px solid transparent; flex-shrink: 0; }
 .icon-btn:hover { background: #1b1c26; color: var(--ink); }
 .new-chat { margin: 16px 4px 4px; min-height: 40px; }
-.chat-list { display: block; flex: 1; min-height: 0; overflow-y: auto; padding: 2px 2px 8px; }
+.chat-list { display: block; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 2px 8px; }
 .chat-list .nav-label { margin: 14px 10px 6px; }
 .chat-rows { list-style: none; margin: 0; padding: 0; }
 .chat-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-radius: 8px; }
@@ -387,7 +423,7 @@ body { background: radial-gradient(ellipse at 80% 0%, #17131f 0, #0d0d0d 40%); }
 .sidebar-resizer { position: absolute; top: 0; bottom: 0; right: 0; width: 6px; cursor: col-resize; }
 .sidebar-resizer:hover, .sidebar-resizer:focus-visible, body.resizing .sidebar-resizer { background: var(--focus); outline: none; }
 body.resizing { user-select: none; cursor: col-resize; }
-.chat-shell { display: flex; flex-direction: column; min-width: 0; min-height: 100vh; }
+.chat-shell { display: flex; flex-direction: column; min-width: 0; min-height: 100vh; min-height: 100svh; }
 .chat-topbar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 14px; background: #0d0d10; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .topbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .topbar-left strong { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -436,16 +472,26 @@ body.resizing { user-select: none; cursor: col-resize; }
 .prompt-count { margin-right: auto; color: var(--muted); font-size: 11px; }
 .setup-notice, .app-notice { margin: 0; font-size: 12px; color: var(--muted); }
 .setup-notice.warn { color: var(--bad); }
-.modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: #000a; }
+.modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: #000a; overflow-y: auto; }
 .access-card { width: min(440px, 100%); padding: 24px; box-shadow: 0 20px 60px #000c; }
 .access-card h2 { font-size: 20px; }
 .access-card p { color: var(--muted); font-size: 13px; }
 .access-card form { display: flex; flex-direction: column; gap: 10px; }
 .access-card .composer-actions { display: flex; justify-content: flex-end; }
-.drawer-backdrop { position: fixed; inset: 0; background: #0008; z-index: 30; }
+.drawer-backdrop { position: fixed; inset: 0; background: #0008; z-index: 30; touch-action: none; }
+/* Scroll lock while the drawer or the access modal is up. Both are fixed
+   overlays, yet a touch scroll on them still reaches the document
+   underneath (a swipe on the open drawer moved the chat behind it on the
+   hosted page). iOS Safari does not honour overflow:hidden on body, so
+   the body is pinned in place instead; the script sets `top` to the
+   offset it had and restores that offset on release (syncScrollLock). */
+body.scroll-locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 @media (max-width: 960px) {
   .chat-app, .chat-app[data-sidebar="closed"] { grid-template-columns: minmax(0, 1fr); }
-  .chat-sidebar, .chat-app[data-sidebar="closed"] .chat-sidebar { display: flex; position: fixed; inset: 0 auto 0 0; width: min(85vw, 320px); height: 100vh; transform: translateX(-100%); transition: transform .2s ease; z-index: 40; box-shadow: 0 0 40px #000a; }
+  /* height:auto, not 100vh: top/bottom of the inset size the drawer to the
+     VISIBLE viewport, so its bottom note (model, access code) is not
+     hidden behind Safari's toolbar. */
+  .chat-sidebar, .chat-app[data-sidebar="closed"] .chat-sidebar { display: flex; position: fixed; inset: 0 auto 0 0; width: min(85vw, 320px); height: auto; transform: translateX(-100%); transition: transform .2s ease; z-index: 40; box-shadow: 0 0 40px #000a; }
   .chat-app[data-drawer="open"] .chat-sidebar { transform: none; }
   .chat-app[data-sidebar="open"] #sidebar-open, .chat-app[data-sidebar="open"] #topbar-new-chat { display: inline-grid; }
   .sidebar-resizer { display: none; }
@@ -458,6 +504,38 @@ body.resizing { user-select: none; cursor: col-resize; }
   .thread { padding: 18px 14px 16px; }
   .welcome { padding-top: 34px; }
   .welcome h1 { font-size: 26px; }
+}
+/* Phones, portrait or landscape (the height clause catches a phone held
+   sideways, where the composer covered more than half the screen). The
+   two-line agent caption is hidden from the eye only - it keeps its place
+   in the accessibility tree, and the agent-lock note inside it still
+   reads - and the paddings tighten. Together this returns ~60px of chat. */
+@media (max-width: 700px), (max-height: 500px) {
+  .agent-caption { position: absolute; height: 1px; width: 1px; min-width: 0; margin: 0; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+  .composer { padding: 10px 12px 8px; gap: 6px; }
+  .composer-wrap { padding: 6px 10px 10px; }
+  .composer .btn { min-height: 38px; }
+  .composer textarea { min-height: 40px; }
+}
+/* A phone held sideways has ~390px of height. Once a chat has started the
+   agent switch is disabled - the top bar's agent badge already says which
+   agent this chat is - so its row is dropped there and only there; on a
+   new chat the switch stays, since it is the only place to choose. */
+@media (max-height: 500px) {
+  .composer-top:has(.agent-switch input:disabled) { display: none; }
+}
+/* Touch devices: finger-sized hit areas. The access "Change / Enter"
+   button grows through padding and matching negative margins, so the
+   sidebar note keeps its line height while the tap area reaches ~36px.
+   .rename-input repeats the shared 16px rule because its own 13px
+   declaration outranks the shared selector. */
+@media (hover: none) and (pointer: coarse) {
+  .icon-btn { width: 40px; height: 40px; }
+  .row-menu-btn { width: 36px; height: 36px; }
+  .row-menu button { padding: 11px 12px; }
+  .confirm-delete .btn { min-height: 36px; }
+  .access-state .text-button { padding: 9px 6px; margin: -9px -6px; }
+  .rename-input { font-size: 16px; }
 }
 </style>
 <!-- /variant -->
@@ -598,7 +676,7 @@ body.resizing { user-select: none; cursor: col-resize; }
     <div class="side-note"><strong id="side-model">Averio bookings assistant</strong><p>Answers are generated on demand and may use API credits.</p><p class="access-state" id="access-state" hidden><span id="access-state-text">Access code saved in this browser</span> · <button type="button" class="text-button" id="access-change">Change</button></p></div>
     <div class="sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" aria-valuemin="200" aria-valuemax="420" aria-valuenow="280" tabindex="0" title="Drag to resize · double-click to reset"></div>
   </aside>
-  <div class="chat-shell">
+  <div class="chat-shell" id="chat-shell">
     <header class="chat-topbar">
       <div class="topbar-left">
         <button class="icon-btn" id="sidebar-open" type="button" aria-label="Open sidebar" aria-controls="chat-sidebar" aria-expanded="true" title="Open sidebar">≡</button>
@@ -696,11 +774,31 @@ function layerChip(lc) {
   if (typeof lc.score === 'number' && Number.isFinite(lc.score)) {
     const v = Math.max(0, Math.min(100, Math.round(lc.score)));
     const cls = v >= 80 ? 'conf-high' : v >= 50 ? 'conf-medium' : 'conf-low';
-    // The hover IS the calculation: the rubric's itemized point breakdown.
-    const tip = 'Calculated from the layer’s signals:\n' + (Array.isArray(lc.breakdown) ? lc.breakdown.join('\n') : (lc.reason || ''));
-    return '<span class="conf ' + cls + '" title="' + esc(tip) + '">Layer: ' + v + '%</span>';
+    // The breakdown IS the calculation: the rubric's itemized points. It is
+    // the hover tooltip on a laptop, and - because a phone has no hover -
+    // the chip is a button whose tap opens the same lines inline
+    // (toggleChipDetail, wired by each face). Lines travel in data-detail.
+    const lines = (Array.isArray(lc.breakdown) ? lc.breakdown : [lc.reason || '']).map(String).filter(Boolean);
+    const tip = 'Calculated from the layer’s signals:\n' + lines.join('\n');
+    return '<button type="button" class="conf ' + cls + ' layer-chip" aria-expanded="false" title="' + esc(tip) + '" data-detail="' + esc(lines.join('\n')) + '">Layer: ' + v + '%</button>';
   }
   return '<span class="conf conf-none" title="' + esc(lc.reason || 'No computed figure was served') + '">' + esc(lc.label || 'Layer: policy-based') + '</span>';
+}
+// Tap, click or Enter on a layer chip: show or hide its point breakdown as
+// a list right under the heading the chip sits in (.answer-heading on the
+// demo, .msg-head on the end-user page). A pure DOM helper - each face
+// registers the delegated click listener itself, since nothing in this
+// shared script may run at load.
+function toggleChipDetail(chip) {
+  const heading = chip.closest('.answer-heading, .msg-head');
+  if (!heading) return;
+  const open = heading.nextElementSibling;
+  if (open && open.classList.contains('chip-detail')) { open.remove(); chip.setAttribute('aria-expanded', 'false'); return; }
+  const list = document.createElement('ul'); list.className = 'chip-detail';
+  const lines = String(chip.dataset.detail || '').split('\n').filter(Boolean);
+  list.innerHTML = (lines.length ? lines : ['No breakdown was recorded for this answer.']).map(line => '<li>' + esc(line) + '</li>').join('');
+  heading.insertAdjacentElement('afterend', list);
+  chip.setAttribute('aria-expanded', 'true');
 }
 // A `final` event that carries no usable answer (the runner ran out of
 // steps, or the model returned nothing) is reported honestly, never
@@ -962,7 +1060,9 @@ async function ask(event) {
       const args = typeof entry.arguments === 'string' ? entry.arguments : JSON.stringify(entry.arguments ?? {});
       const item = document.createElement('div'); item.className = 'event';
       item.innerHTML = '<code>' + esc(entry.tool || 'tool') + '</code> ' + esc(args.slice(0, 220));
-      $('events-' + agent).appendChild(item); $('trail-' + agent).hidden = false;
+      const events = $('events-' + agent);
+      events.appendChild(item); events.scrollTop = events.scrollHeight;   // the box is height-capped: keep the newest call in view
+      $('trail-' + agent).hidden = false;
       $('steps-' + agent).textContent = entry.step ? 'Step ' + entry.step : '';
     } else if (entry.type === 'final' || entry.type === 'error') {
       completed.add(agent); $('activity-' + agent).classList.remove('pending');
@@ -1046,6 +1146,8 @@ $('q').addEventListener('keydown', event => { if (event.key === 'Enter' && (even
 $('ask-form').addEventListener('submit', ask);
 $('stopbtn').addEventListener('click', () => { liveStopped = true; liveController?.abort(); });
 $('refresh-config').addEventListener('click', loadConfig);
+// Layer chips (recorded and live answers alike) open their breakdown on tap.
+document.addEventListener('click', event => { const chip = event.target.closest('.layer-chip'); if (chip) toggleChipDetail(chip); });
 // Scroll-position spy for the sidebar. The active section is the LAST one
 // whose top has passed near the viewport top - and at the bottom of the
 // page the final section wins even when it is too short to reach the top
@@ -1055,8 +1157,19 @@ const SECTIONS = [...document.querySelectorAll('main > section')];
 const NAV_LINKS = [...document.querySelectorAll('nav a')];
 function highlightNav(id) {
   for (const link of NAV_LINKS) {
-    if (link.getAttribute('href') === '#' + id) link.setAttribute('aria-current', 'location');
-    else link.removeAttribute('aria-current');
+    const current = link.getAttribute('href') === '#' + id;
+    if (!current) { link.removeAttribute('aria-current'); continue; }
+    if (link.getAttribute('aria-current') === 'location') continue;   // unchanged: no scroll work
+    link.setAttribute('aria-current', 'location');
+    // On phones the links are one sideways-scrolling strip: bring the newly
+    // current link into view by moving the STRIP's own scrollLeft. Not
+    // scrollIntoView - that also issues a (zero-length) scroll on the
+    // document, which cancels a smooth anchor jump in flight.
+    const nav = link.closest('nav');
+    if (!nav || nav.scrollWidth <= nav.clientWidth) continue;
+    const n = nav.getBoundingClientRect(), l = link.getBoundingClientRect();
+    if (l.left < n.left) nav.scrollLeft += l.left - n.left - 8;
+    else if (l.right > n.right) nav.scrollLeft += l.right - n.right + 8;
   }
 }
 function syncNav() {
@@ -1092,8 +1205,15 @@ Promise.allSettled([loadResults(), loadConfig(), loadCurated()]);
 const STORE = 'averio.assistant.v1.';
 const SIDEBAR = {min: 200, max: 420, initial: 280};
 const TITLE_MAX = 60, TRAIL_ARG_MAX = 500;
+// Two predicates, on purpose. isMobile is LAYOUT (drawer instead of a
+// sidebar, by width). isTouch is INPUT (no hover, a coarse pointer: a phone
+// or tablet, never a narrow laptop window) and decides what Enter does,
+// whether the composer may grab focus, and the tap sizes in CSS. `=== true`
+// because the boot check's stub returns a truthy object for `.matches`.
 const mobileQuery = window.matchMedia('(max-width: 960px)');
 const isMobile = () => mobileQuery.matches === true;
+const coarseQuery = window.matchMedia('(hover: none) and (pointer: coarse)');
+const isTouch = () => coarseQuery.matches === true;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const clampWidth = w => Math.min(SIDEBAR.max, Math.max(SIDEBAR.min, Math.round(Number(w) || SIDEBAR.initial)));
 const agentLabel = agent => (agent === 'baseline' ? 'Baseline' : 'Governed');
@@ -1156,10 +1276,36 @@ function setSidebar(open) {
   sidebar.open = open; write('sidebar', sidebar); applySidebar();
   (open ? $('new-chat') : $('sidebar-open')).focus();
 }
+// --- Scroll lock. The drawer and the access modal are fixed overlays, yet
+// a touch scroll on them still reaches the document underneath (a swipe on
+// the open drawer moved the chat behind it on the hosted page). Since iOS
+// Safari does not honour overflow:hidden on body, the body is pinned with
+// position:fixed at the offset it had (CSS: body.scroll-locked) and released
+// to that same offset - or to the end of the thread, when a chat was opened
+// while the drawer was still up. The unlock forces a layout pass first:
+// scrollTo on a body that has not regained its height clamps to 0.
+let lockedAt = null, scrollEndPending = false;
+function syncScrollLock() {
+  const wanted = app.dataset.drawer === 'open' || $('access-modal').hidden === false;
+  if (wanted && lockedAt === null) {
+    lockedAt = window.scrollY || 0;
+    document.body.style.top = -lockedAt + 'px';
+    document.body.classList.add('scroll-locked');
+  } else if (!wanted && lockedAt !== null) {
+    const y = lockedAt; lockedAt = null;
+    document.body.classList.remove('scroll-locked'); document.body.style.top = '';
+    void document.body.offsetHeight;
+    if (scrollEndPending) { scrollEndPending = false; scrollToEnd(); } else window.scrollTo({top: y, behavior: 'instant'});
+  }
+}
 function setDrawer(open) {
   app.dataset.drawer = open ? 'open' : 'closed';
   $('drawer-backdrop').hidden = !open;
+  // The page behind the drawer is out of reach for Tab and screen readers
+  // too, not only for the eye.
+  $('chat-shell').toggleAttribute('inert', open);
   $('sidebar-open').setAttribute('aria-expanded', String(open));
+  syncScrollLock();
   if (open) $('new-chat').focus();
 }
 function setWidth(width, persist) {
@@ -1209,7 +1355,9 @@ const rowEl = (id, selector) => $('chat-list').querySelector('.chat-row[data-id=
 function focusRow(id, selector) { const el = rowEl(id, selector); if (el) el.focus(); return !!el; }
 $('chat-list').addEventListener('click', event => {
   const row = event.target.closest('.chat-row'); if (!row) return;
-  if (event.target.closest('.chat-open')) { openChat(row.dataset.id); if (isMobile()) setDrawer(false); }
+  // Drawer first, chat second: the shell is inert while the drawer is up,
+  // so the prompt could not take focus before the drawer had closed.
+  if (event.target.closest('.chat-open')) { if (isMobile()) setDrawer(false); openChat(row.dataset.id); }
   else if (event.target.closest('.row-menu-btn')) toggleMenu(row);
 });
 function closeMenu(refocus) {
@@ -1241,6 +1389,8 @@ function toggleMenu(row) {
   });
 }
 document.addEventListener('click', event => { if (openMenu && !openMenu.menu.contains(event.target) && !openMenu.button.contains(event.target)) closeMenu(); });
+// Layer chips open their breakdown on tap (shared helper, face-local wiring).
+document.addEventListener('click', event => { const chip = event.target.closest('.layer-chip'); if (chip) toggleChipDetail(chip); });
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return;
   if (openMenu) closeMenu(true); else if (isMobile() && app.dataset.drawer === 'open') setDrawer(false);
@@ -1279,7 +1429,15 @@ function confirmDelete(row, entry) {
 
 // --- Thread rendering. An assistant message is painted from its data, so a
 // restored chat and a live one look identical.
-function scrollToEnd() { window.scrollTo({top: document.documentElement.scrollHeight}); }
+function scrollToEnd() {
+  if (lockedAt !== null) { scrollEndPending = true; return; }   // applied when the lock lifts
+  window.scrollTo({top: document.documentElement.scrollHeight, behavior: 'instant'});   // instant: the page's smooth scroll-behavior would race the lock
+}
+// Follow the stream only while the reader is already at the bottom: a
+// visitor who scrolled up to re-read an earlier turn must not be yanked
+// down on every tool call. Measure BEFORE appending, or the new content
+// itself decides the answer.
+const nearBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 160;
 function trailItem(t) {
   const li = document.createElement('li');
   li.textContent = describeToolCall(t.tool, t.arguments);
@@ -1380,6 +1538,7 @@ function syncComposer() {
   const modal = $('access-modal');
   if (needCode && modal.hidden) { modal.hidden = false; $('access-input').focus(); }
   else if (!needCode) modal.hidden = true;
+  syncScrollLock();
   // A remembered code is otherwise invisible; say so, and offer a way to
   // swap it without waiting for the server to refuse the old one.
   $('access-state').hidden = CONFIG?.access_required !== true;
@@ -1394,8 +1553,15 @@ function syncComposer() {
 }
 const prompt = $('prompt');
 function autosize() { prompt.style.height = 'auto'; prompt.style.height = Math.min(prompt.scrollHeight || 0, 200) + 'px'; }
+// Programmatic focus is a desktop courtesy. On a phone it summons the soft
+// keyboard over whatever the visitor was reading - the answer that just
+// arrived, the chat they just opened - so there the prompt waits to be tapped.
+const focusPrompt = () => { if (!isTouch()) prompt.focus(); };
 prompt.addEventListener('input', () => { autosize(); syncComposer(); });
-prompt.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); } });
+// Desktop: Enter sends, Shift+Enter breaks the line. A phone keyboard has
+// no Shift+Enter, so there Enter keeps its native newline and the Send
+// button is the way to send.
+prompt.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && !isTouch()) { event.preventDefault(); send(); } });
 $('composer').addEventListener('submit', event => { event.preventDefault(); send(); });
 $('stop').addEventListener('click', abortRun);
 function abortRun() { if (!pending) return; stopped = true; controller?.abort(); }
@@ -1420,7 +1586,7 @@ $('access-form').addEventListener('submit', async event => {
     if (await checkAccess(code)) {
       accessCode = code; write('access', code);
       $('access-input').value = '';
-      syncComposer(); prompt.focus();
+      syncComposer(); focusPrompt();
     } else { accessError('That code was not accepted. Try again.'); $('access-input').select(); }
   } catch (error) { accessError('The code could not be checked: ' + error.message); }
   finally { checkingAccess = false; $('access-submit').disabled = false; $('access-submit').textContent = 'Continue'; }
@@ -1447,7 +1613,7 @@ function newChat(focus = true) {
   renderThread(); renderList(); syncComposer();
   prompt.value = ''; autosize();
   if (isMobile()) setDrawer(false);
-  if (focus) prompt.focus();
+  if (focus) focusPrompt();
 }
 function openChat(id) {
   if (id === activeId || !chatOf(id)) return;
@@ -1457,7 +1623,7 @@ function openChat(id) {
   messages = stored && Array.isArray(stored.messages) ? stored.messages.filter(m => m && (m.role === 'user' || m.role === 'assistant')) : [];
   write('active', id);
   renderThread(); renderList(); syncComposer();
-  prompt.focus();
+  focusPrompt();
 }
 // Earlier turns the model will see again: completed pairs only. Errors and
 // stopped turns are skipped, and the stored confidence rides along so the
@@ -1509,9 +1675,11 @@ async function send() {
     } else if (e.type === 'tool_call') {
       const args = typeof e.arguments === 'string' ? e.arguments : JSON.stringify(e.arguments ?? {});
       const call = {step: e.step, tool: e.tool, arguments: args.slice(0, TRAIL_ARG_MAX)};
+      const follow = nearBottom();
       reply.trail.push(call); list.appendChild(trailItem(call));
+      list.scrollTop = list.scrollHeight;   // the trail box is height-capped: keep the newest step in view
       box.hidden = false; box.open = true; box.querySelector('summary').textContent = 'What the assistant did · ' + plural(reply.trail.length, 'step');
-      persist(); scrollToEnd();
+      persist(); if (follow) scrollToEnd();
     } else if (e.type === 'final') {
       const state = finalAnswerState(e);
       if (state.complete) Object.assign(reply, {status: 'final', content: e.answer, confidence: typeof e.confidence === 'number' ? e.confidence : null, layer_confidence: e.layer_confidence ?? null, steps: e.steps ?? null, cost_usd: e.usage?.cost_usd ?? null});
@@ -1548,9 +1716,10 @@ async function send() {
     else Object.assign(reply, {status: 'error', error: error.message || 'The request was interrupted. Please try again.'});
   } finally {
     pending = false; controller = null;
+    const follow = nearBottom();
     if (!rolledBack) { paintAssistant(node, reply, entry.agent); persist(); }
-    renderList(); syncComposer(); scrollToEnd();
-    if (rolledBack) $('access-input').focus(); else if (activeId === chatId) prompt.focus();
+    renderList(); syncComposer(); if (follow) scrollToEnd();
+    if (rolledBack) $('access-input').focus(); else if (activeId === chatId) focusPrompt();
   }
 }
 function fallbackTitle(question) {

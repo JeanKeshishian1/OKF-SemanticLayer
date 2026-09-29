@@ -20,5 +20,5 @@ __pycache__/
 # Generated data (deterministic; rebuild with: python -m averio.generate_data)
 data/*.duckdb
 
-/questions
+/docs/questions
 docs/
